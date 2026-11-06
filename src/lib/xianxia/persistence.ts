@@ -11,6 +11,7 @@ function ensureDirExists() {
 }
 
 export function saveStoreToDisk(accountId: string, store: InternalStore) {
+  if (typeof window !== "undefined") return;
   try {
     ensureDirExists();
     const filePath = path.join(DATA_DIR, `${accountId.replace(/[^a-zA-Z0-9_.-]/g, "_")}.json`);
@@ -21,6 +22,7 @@ export function saveStoreToDisk(accountId: string, store: InternalStore) {
 }
 
 export function loadStoreFromDisk(accountId: string): InternalStore | null {
+  if (typeof window !== "undefined") return null;
   try {
     ensureDirExists();
     const filePath = path.join(DATA_DIR, `${accountId.replace(/[^a-zA-Z0-9_.-]/g, "_")}.json`);
@@ -35,6 +37,7 @@ export function loadStoreFromDisk(accountId: string): InternalStore | null {
 }
 
 export function deleteStoreFromDisk(accountId: string) {
+  if (typeof window !== "undefined") return;
   try {
     const filePath = path.join(DATA_DIR, `${accountId.replace(/[^a-zA-Z0-9_.-]/g, "_")}.json`);
     if (fs.existsSync(filePath)) {

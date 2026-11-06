@@ -71,10 +71,10 @@ import {
   PvpDuelOpponent,
   PvpDuelReport,
   PvpTurnLog,
+  SPIRIT_ROOTS_CATALOG,
   SpiritRootDefinition,
   XianxiaWorldSnapshot,
 } from "@/lib/xianxia/types";
-import { SPIRIT_ROOTS_CATALOG } from "@/lib/xianxia/engine";
 import { useNearWallet } from "near-connect-hooks";
 
 type ActiveBuilding = "GARDEN" | "FORGE" | "REALM" | "ARENA" | "TREASURY";

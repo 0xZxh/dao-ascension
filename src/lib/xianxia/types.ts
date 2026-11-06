@@ -206,6 +206,69 @@ export interface SpiritRootDefinition {
   lore: string;
 }
 
+export const SPIRIT_ROOTS_CATALOG: SpiritRootDefinition[] = [
+  {
+    id: "root-common",
+    name: "凡品 · 五行凡脉杂灵根",
+    tier: "凡品",
+    hpBonusPct: 0,
+    atkBonusPct: 0,
+    critBonusPct: 0,
+    pillPotencyBonusPct: 0,
+    stoneDropBonusPct: 0,
+    badgeStyle: "bg-[#F3EFE6] border-[#D1C7B7] text-[#695D4A]",
+    lore: "五行俱全却混沌未明，修仙之基，凡夫俗子初入道门之根。",
+  },
+  {
+    id: "root-earth",
+    name: "玄品 · 厚土固本灵根",
+    tier: "玄品",
+    hpBonusPct: 5,
+    atkBonusPct: 0,
+    critBonusPct: 0,
+    pillPotencyBonusPct: 10,
+    stoneDropBonusPct: 0,
+    badgeStyle: "bg-[#EBF4F0] border-[#9CC5BD] text-[#2F6158]",
+    lore: "地脉玄黄气所凝，气血雄浑，炼丹服气效力倍增。",
+  },
+  {
+    id: "root-metal",
+    name: "地品 · 庚金破煞灵根",
+    tier: "地品",
+    hpBonusPct: 0,
+    atkBonusPct: 8,
+    critBonusPct: 5,
+    pillPotencyBonusPct: 0,
+    stoneDropBonusPct: 0,
+    badgeStyle: "bg-[#FAF1E3] border-[#DEBE87] text-[#825C21]",
+    lore: "西方太白庚金之气，锋芒内蕴，剑意凌厉，出鞘破煞。",
+  },
+  {
+    id: "root-wood",
+    name: "天品 · 青莲造化木灵根",
+    tier: "天品",
+    hpBonusPct: 15,
+    atkBonusPct: 5,
+    critBonusPct: 4,
+    pillPotencyBonusPct: 15,
+    stoneDropBonusPct: 12,
+    badgeStyle: "bg-[#E6F5F1] border-[#72B4A7] text-[#1D5E52]",
+    lore: "九天造化青莲真种，生气无穷，采药炼丹与气血同修。",
+  },
+  {
+    id: "root-star",
+    name: "仙品 · 太初星辰剑灵根",
+    tier: "仙品",
+    hpBonusPct: 20,
+    atkBonusPct: 20,
+    critBonusPct: 12,
+    pillPotencyBonusPct: 20,
+    stoneDropBonusPct: 20,
+    badgeStyle: "bg-[#F5EDFA] border-[#C39FE3] text-[#5C2B8A]",
+    lore: "太初玄光淬炼，剑气通达周天星宿，诸般修仙增益登峰造极。",
+  },
+];
+
 export interface CultivatorNftAccount {
   nftTokenId: string;
   nftStandard: "nep171";
