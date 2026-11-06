@@ -1,0 +1,331 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --jade-moon-white: #f7fbfa;
+  --jade-celadon: #cfe6e0;
+  --jade-celadon-deep: #28443e;
+  --jade-dark-ink: #13221f;
+  --gold-pale: #c8aa72;
+  --gold-dark: #8a6a32;
+  --gold-light: #e5d2ab;
+  --cinnabar-red: #a82e2e;
+  --lavender-glow: rgba(218, 204, 240, 0.42);
+  --ink-primary: #1e332f;
+  --ink-secondary: #4a6762;
+}
+
+body {
+  background-color: #eaf1ee;
+  color: #1e332f;
+  font-family: "Noto Serif SC", "Songti SC", "STSong", "STKaiti", "Huawen Songti",
+    "PingFang SC", "Hiragino Sans GB", serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* =========================================================================
+   中式古典八角切角框 (Chamfered Corner Box / 八角海棠框 / 宋代经匣)
+   ========================================================================= */
+.xianxia-chamfer {
+  clip-path: polygon(
+    8px 0,
+    calc(100% - 8px) 0,
+    100% 8px,
+    100% calc(100% - 8px),
+    calc(100% - 8px) 100%,
+    8px 100%,
+    0 calc(100% - 8px),
+    0 8px
+  );
+}
+
+.xianxia-chamfer-sm {
+  clip-path: polygon(
+    5px 0,
+    calc(100% - 5px) 0,
+    100% 5px,
+    100% calc(100% - 5px),
+    calc(100% - 5px) 100%,
+    5px 100%,
+    0 calc(100% - 5px),
+    0 5px
+  );
+}
+
+/* 中式碑刻白玉匣面板 (微圆角 2px-3px + 双层细金线内边框 + 冷峻通透质感) */
+.xianxia-hud-panel {
+  background: linear-gradient(
+    155deg,
+    rgba(255, 255, 255, 0.90) 0%,
+    rgba(243, 249, 247, 0.82) 48%,
+    rgba(242, 237, 248, 0.76) 100%
+  );
+  backdrop-filter: blur(20px) saturate(120%);
+  -webkit-backdrop-filter: blur(20px) saturate(120%);
+  border: 1px solid rgba(188, 154, 94, 0.65);
+  box-shadow:
+    0 8px 30px -8px rgba(35, 60, 55, 0.14),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.95),
+    inset 0 0 0 3px rgba(188, 154, 94, 0.16);
+  border-radius: 2px;
+}
+
+/* 墨玉/深青黛色抬头显示栏 (HUD) */
+.xianxia-dark-bar {
+  background: linear-gradient(
+    180deg,
+    rgba(17, 31, 28, 0.96) 0%,
+    rgba(22, 38, 35, 0.94) 100%
+  );
+  border-bottom: 1px solid rgba(194, 161, 103, 0.45);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.22);
+}
+
+/* 顶部悬浮修仙状态栏 (免胶囊药丸的冷金雕刻仪轨) */
+.xianxia-status-shelf {
+  background: linear-gradient(
+    180deg,
+    rgba(19, 34, 31, 0.92) 0%,
+    rgba(13, 25, 23, 0.96) 100%
+  );
+  border: 1px solid rgba(194, 161, 103, 0.55);
+  box-shadow:
+    0 8px 24px -4px rgba(10, 20, 18, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 0 0 2px rgba(194, 161, 103, 0.15);
+  border-radius: 2px;
+}
+
+/* 水墨宣纸展开画轴 (无框横向卷轴，带有左右卷轴头) */
+.xianxia-scroll-paper {
+  background: linear-gradient(
+    90deg,
+    #cfc4ab 0%,
+    #fcf8ec 7%,
+    #fdfbf3 50%,
+    #fcf8ec 93%,
+    #cfc4ab 100%
+  );
+  border-top: 1px solid rgba(145, 116, 62, 0.65);
+  border-bottom: 1px solid rgba(145, 116, 62, 0.65);
+  box-shadow:
+    0 6px 20px -6px rgba(45, 35, 20, 0.25),
+    inset 0 0 16px rgba(188, 164, 120, 0.22);
+}
+
+/* 白玉井字形阵盘 (九宫格整体棋盘) */
+.xianxia-array-board {
+  background: linear-gradient(
+    155deg,
+    rgba(255, 255, 255, 0.92) 0%,
+    rgba(238, 246, 243, 0.85) 100%
+  );
+  border: 2px solid rgba(175, 140, 78, 0.75);
+  outline: 1px solid rgba(255, 255, 255, 0.85);
+  outline-offset: -3px;
+  box-shadow:
+    0 10px 32px -8px rgba(35, 60, 55, 0.18),
+    inset 0 0 0 1px rgba(175, 140, 78, 0.25);
+  border-radius: 2px;
+}
+
+/* 灵田玉坑灵壤格 (内凹深邃阴影) */
+.xianxia-plot-cell {
+  background: radial-gradient(
+    ellipse at 50% 50%,
+    rgba(238, 248, 245, 0.85) 0%,
+    rgba(215, 235, 230, 0.72) 100%
+  );
+  box-shadow:
+    inset 0 4px 14px rgba(22, 45, 40, 0.18),
+    inset 0 1px 3px rgba(22, 45, 40, 0.25);
+  transition: all 0.25s ease;
+}
+
+.xianxia-plot-cell:hover:not(:disabled) {
+  background: radial-gradient(
+    ellipse at 50% 50%,
+    rgba(246, 253, 251, 0.95) 0%,
+    rgba(202, 235, 227, 0.85) 100%
+  );
+  box-shadow:
+    inset 0 0 20px rgba(95, 195, 175, 0.45),
+    inset 0 1px 4px rgba(22, 45, 40, 0.3);
+}
+
+/* 中式朱砂印章 (Cinnabar Seal Stamp) */
+.seal-stamp {
+  border: 1.5px solid #a82e2e;
+  color: #a82e2e;
+  font-family: "STSong", "Songti SC", "SimSun", serif;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  background: rgba(255, 242, 242, 0.65);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 4px rgba(168, 46, 46, 0.2);
+  border-radius: 2px;
+}
+
+/* 竖排文本布局工具类 */
+.vertical-rl {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  letter-spacing: 0.2em;
+}
+
+/* 鎏金牌匾页签 (Plaque Tab) */
+.xianxia-plaque-tab-active {
+  background: linear-gradient(
+    180deg,
+    #fdfbf5 0%,
+    #f2ebd9 60%,
+    #e8dcbf 100%
+  );
+  border: 1.5px solid #a88444;
+  border-bottom: 2px solid transparent;
+  color: #3b280c;
+  box-shadow:
+    0 -4px 14px -2px rgba(168, 132, 68, 0.32),
+    inset 0 1px 1px #ffffff;
+  border-radius: 3px 3px 0 0;
+}
+
+.xianxia-plaque-tab-inactive {
+  background: linear-gradient(
+    180deg,
+    rgba(244, 249, 247, 0.88) 0%,
+    rgba(224, 237, 233, 0.72) 100%
+  );
+  border: 1px solid rgba(168, 132, 68, 0.4);
+  border-bottom: none;
+  color: #3f605a;
+  border-radius: 3px 3px 0 0;
+  transition: all 0.2s ease;
+}
+
+.xianxia-plaque-tab-inactive:hover {
+  background: linear-gradient(
+    180deg,
+    rgba(250, 253, 252, 0.95) 0%,
+    rgba(232, 244, 241, 0.85) 100%
+  );
+  color: #1e3632;
+}
+
+.xianxia-plaque-tab-locked {
+  background: linear-gradient(
+    180deg,
+    rgba(222, 230, 228, 0.55) 0%,
+    rgba(206, 216, 214, 0.45) 100%
+  );
+  border: 1px dashed rgba(142, 160, 156, 0.55);
+  border-bottom: none;
+  color: #839693;
+  border-radius: 3px 3px 0 0;
+  cursor: not-allowed;
+}
+
+/* 中式折沿金边按钮 */
+.xianxia-btn-gold {
+  background: linear-gradient(
+    135deg,
+    #fbf4e2 0%,
+    #ebd5a5 52%,
+    #d9bc84 100%
+  );
+  color: #3e2d11;
+  border: 1px solid #aa8442;
+  box-shadow:
+    0 4px 14px -2px rgba(170, 132, 66, 0.3),
+    inset 0 1px 1px rgba(255, 255, 255, 0.95);
+  border-radius: 2px;
+  transition: all 0.2s ease;
+}
+
+.xianxia-btn-gold:hover:not(:disabled) {
+  background: linear-gradient(
+    135deg,
+    #fff9ec 0%,
+    #f3e0b4 52%,
+    #e2c892 100%
+  );
+  border-color: #926d2d;
+  box-shadow:
+    0 6px 18px -2px rgba(170, 132, 66, 0.42),
+    inset 0 1px 2px rgba(255, 255, 255, 1);
+  transform: translateY(-1px);
+}
+
+.xianxia-btn-celadon {
+  background: linear-gradient(
+    135deg,
+    rgba(246, 252, 250, 0.95) 0%,
+    rgba(215, 238, 233, 0.88) 100%
+  );
+  color: #214841;
+  border: 1px solid rgba(118, 168, 158, 0.7);
+  box-shadow:
+    0 3px 10px -2px rgba(100, 158, 148, 0.22),
+    inset 0 1px 1px rgba(255, 255, 255, 0.95);
+  border-radius: 2px;
+  transition: all 0.2s ease;
+}
+
+.xianxia-btn-celadon:hover:not(:disabled) {
+  background: linear-gradient(
+    135deg,
+    rgba(252, 254, 254, 0.98) 0%,
+    rgba(224, 245, 240, 0.95) 100%
+  );
+  border-color: #8aa370;
+  transform: translateY(-1px);
+}
+
+/* 动效 */
+@keyframes floatSlow {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes swayGentle {
+  0%,
+  100% {
+    transform: rotate(-1.2deg);
+  }
+  50% {
+    transform: rotate(1.2deg);
+  }
+}
+
+.animate-float-slow {
+  animation: floatSlow 4.5s ease-in-out infinite;
+}
+
+.animate-sway {
+  transform-origin: top center;
+  animation: swayGentle 5.2s ease-in-out infinite;
+}
+
+/* 滚动条 */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(220, 235, 232, 0.4);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(175, 140, 78, 0.5);
+  border-radius: 1px;
+}

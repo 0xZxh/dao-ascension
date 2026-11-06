@@ -1,0 +1,278 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" width="800" height="1000">
+  <defs>
+    <!-- Forest Mist & Warm Soft Light Background -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f7efe8"/>
+      <stop offset="35%" stop-color="#f4e2e1"/>
+      <stop offset="70%" stop-color="#dfece6"/>
+      <stop offset="100%" stop-color="#cadcd5"/>
+    </linearGradient>
+    <radialGradient id="sunGlow" cx="30%" cy="22%" r="65%">
+      <stop offset="0%" stop-color="#fff8eb" stop-opacity="0.95"/>
+      <stop offset="45%" stop-color="#ffdce2" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#e5f0ec" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="mistGlow" cx="50%" cy="78%" r="55%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.75"/>
+      <stop offset="60%" stop-color="#fceef2" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Fluffy White Fox Tail Gradient -->
+    <linearGradient id="tailGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="65%" stop-color="#fdf6f8"/>
+      <stop offset="90%" stop-color="#f7dce4"/>
+      <stop offset="100%" stop-color="#eabec9"/>
+    </linearGradient>
+    <!-- Peach Gauze Dress Gradients -->
+    <linearGradient id="dressMain" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#ffeef2"/>
+      <stop offset="40%" stop-color="#f9cbd6"/>
+      <stop offset="80%" stop-color="#eda4b8"/>
+      <stop offset="100%" stop-color="#d87d96"/>
+    </linearGradient>
+    <linearGradient id="dressGauze" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.82"/>
+      <stop offset="50%" stop-color="#ffdbe5" stop-opacity="0.58"/>
+      <stop offset="100%" stop-color="#f4abc0" stop-opacity="0.32"/>
+    </linearGradient>
+    <linearGradient id="hairGrad" x1="0%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#33262c"/>
+      <stop offset="50%" stop-color="#24191e"/>
+      <stop offset="100%" stop-color="#170f13"/>
+    </linearGradient>
+    <linearGradient id="skinGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fff7f5"/>
+      <stop offset="70%" stop-color="#fdebe7"/>
+      <stop offset="100%" stop-color="#f7d6d0"/>
+    </linearGradient>
+    <linearGradient id="goldSilk" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff0c9"/>
+      <stop offset="50%" stop-color="#e2be78"/>
+      <stop offset="100%" stop-color="#b88e44"/>
+    </linearGradient>
+    <filter id="softBlur" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12"/>
+    </filter>
+    <filter id="subtleGlow" x="-15%" y="-15%" width="130%" height="130%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Peach Blossom Petal Definition -->
+    <g id="petal">
+      <path d="M0,0 C6,-8 16,-8 20,0 C16,8 6,10 0,0 Z" fill="#f7a8bc" opacity="0.8"/>
+      <path d="M2,0 C6,-4 12,-4 15,0" stroke="#ffeef3" stroke-width="1" fill="none" opacity="0.7"/>
+    </g>
+    <!-- Embroidered Butterfly Definition -->
+    <g id="butterfly">
+      <path d="M0,0 C-10,-14 -22,-8 -16,4 C-20,12 -8,16 0,4 C8,16 20,12 16,4 C22,-8 10,-14 0,0 Z" fill="url(#goldSilk)" opacity="0.88"/>
+      <path d="M0,-4 L0,8" stroke="#9e6b30" stroke-width="1.2"/>
+    </g>
+  </defs>
+
+  <!-- 1. Enchanted Forest & Warm Morning Light Background -->
+  <rect width="800" height="1000" fill="url(#bgGrad)"/>
+  <circle cx="240" cy="220" r="460" fill="url(#sunGlow)"/>
+
+  <!-- Distant Misty Forest Silhouettes -->
+  <g opacity="0.22" fill="#6f8f88">
+    <path d="M60,1000 L60,120 Q85,60 110,120 L110,1000 Z"/>
+    <path d="M135,1000 L135,200 Q155,140 175,200 L175,1000 Z"/>
+    <path d="M660,1000 L660,80 Q690,20 720,80 L720,1000 Z"/>
+    <path d="M735,1000 L735,180 Q755,130 775,180 L775,1000 Z"/>
+  </g>
+
+  <!-- Warm Sunbeams Filtering Through Forest Mist -->
+  <g opacity="0.32" filter="url(#softBlur)">
+    <polygon points="0,0 260,0 620,1000 280,1000" fill="#fff9eb"/>
+    <polygon points="180,0 420,0 780,1000 520,1000" fill="#ffeaf0"/>
+  </g>
+
+  <!-- Peach Blossom Tree Branch in Top Left & Right -->
+  <g stroke="#5c4046" stroke-linecap="round" fill="none">
+    <path d="M-20,140 Q120,160 230,95 Q300,60 350,80" stroke-width="8"/>
+    <path d="M110,145 Q160,200 220,210" stroke-width="4.5"/>
+    <path d="M820,220 Q680,250 590,190" stroke-width="7"/>
+  </g>
+  <!-- Blossoms on Branches -->
+  <g>
+    <circle cx="130" cy="140" r="14" fill="#f9bac8"/>
+    <circle cx="142" cy="132" r="11" fill="#ffdbe4"/>
+    <circle cx="122" cy="150" r="10" fill="#f293a9"/>
+    <circle cx="225" cy="98" r="15" fill="#ffd9e2"/>
+    <circle cx="238" cy="106" r="11" fill="#f49db2"/>
+    <circle cx="335" cy="78" r="12" fill="#ffe5ec"/>
+    <circle cx="630" cy="215" r="15" fill="#f9bac8"/>
+    <circle cx="615" cy="202" r="12" fill="#ffe5ec"/>
+    <circle cx="695" cy="235" r="14" fill="#f49db2"/>
+  </g>
+
+  <!-- 2. Voluminous Fluffy White Fox Tails (蓬松白色狐尾) -->
+  <g filter="url(#subtleGlow)">
+    <!-- Tail 1: Large Main Fluffy Tail Sweeping Right -->
+    <path d="M430,580 C550,560 695,430 705,285 C712,195 655,145 615,175 C575,205 585,295 540,375 C495,455 445,510 410,550 Z" fill="url(#tailGrad)" stroke="#f2ced8" stroke-width="2"/>
+    <path d="M615,175 C645,195 675,255 660,335 C642,425 565,515 450,565" fill="none" stroke="#ffffff" stroke-width="6" opacity="0.8"/>
+    <!-- Tail 2: Secondary Lush Tail Sweeping Left-Down -->
+    <path d="M365,595 C235,585 115,495 105,365 C98,285 150,240 190,275 C225,305 220,385 265,455 C305,515 340,545 380,575 Z" fill="url(#tailGrad)" stroke="#f2ced8" stroke-width="2"/>
+    <!-- Tail 3: Lower Soft Tail Curl -->
+    <path d="M445,620 C595,640 715,575 735,470 C745,410 695,385 655,415 C605,455 565,555 440,595 Z" fill="url(#tailGrad)" stroke="#f2ced8" stroke-width="1.8" opacity="0.92"/>
+  </g>
+
+  <!-- 3. Flowing Back Hair -->
+  <path d="M345,230 C295,310 265,450 245,610 C275,585 305,530 325,450 C340,530 365,615 395,660 C425,610 455,540 470,455 C495,530 520,585 555,615 C530,455 505,315 455,230 Z" fill="url(#hairGrad)"/>
+
+  <!-- 4. Bare Legs & Dainty Bare Feet (赤脚 + 银铃红绳配饰) -->
+  <g>
+    <!-- Left Leg & Bare Foot Stepping Gracefully -->
+    <path d="M362,645 C355,720 348,795 345,865 C343,890 332,912 325,922 C338,928 358,926 366,914 C370,900 370,875 374,855 C384,785 392,715 396,645 Z" fill="url(#skinGrad)" stroke="#ecc0b8" stroke-width="1.5"/>
+    <!-- Right Leg Slightly Raised / Playful Pose -->
+    <path d="M412,645 C422,715 442,780 462,845 C470,868 484,885 494,895 C482,906 462,904 452,892 C442,878 435,855 426,832 C406,770 398,710 395,645 Z" fill="url(#skinGrad)" stroke="#ecc0b8" stroke-width="1.5"/>
+
+    <!-- Ankle Red Cord & Silver Bells (银铃配饰) -->
+    <path d="M344,868 Q360,875 373,866" fill="none" stroke="#d9384a" stroke-width="2.5"/>
+    <circle cx="342" cy="873" r="6" fill="#eef5f9" stroke="#8fa6b5" stroke-width="1.5"/>
+    <circle cx="342" cy="875" r="1.5" fill="#596e79"/>
+    <circle cx="375" cy="871" r="5" fill="#eef5f9" stroke="#8fa6b5" stroke-width="1.5"/>
+
+    <path d="M436,835 Q450,838 463,828" fill="none" stroke="#d9384a" stroke-width="2.5"/>
+    <circle cx="466" cy="832" r="6" fill="#eef5f9" stroke="#8fa6b5" stroke-width="1.5"/>
+    <circle cx="466" cy="834" r="1.5" fill="#596e79"/>
+  </g>
+
+  <!-- 5. Pink Gauze Short Immortal Dress (粉色薄纱短款仙裙，绣桃花与蝶纹) -->
+  <g>
+    <!-- Translucent Outer Trailing Gauze Ribbons -->
+    <path d="M315,435 C245,515 195,635 170,755 C225,735 275,675 330,585 Z" fill="url(#dressGauze)" stroke="#ffffff" stroke-width="1.2"/>
+    <path d="M485,435 C555,515 605,635 630,755 C575,735 525,675 470,585 Z" fill="url(#dressGauze)" stroke="#ffffff" stroke-width="1.2"/>
+
+    <!-- Layered Short Skirt Base (短款仙裙) -->
+    <path d="M345,455 C315,525 285,605 270,665 C315,685 355,690 400,688 C445,690 485,685 530,665 C515,605 485,525 455,455 Z" fill="url(#dressMain)" stroke="#f4b6c6" stroke-width="1.8"/>
+
+    <!-- Sheer Petal Over-Skirt Layer -->
+    <path d="M350,455 C325,520 305,585 295,640 C335,665 365,650 400,672 C435,650 465,665 505,640 C495,585 475,520 450,455 Z" fill="url(#dressGauze)" stroke="#fff5f8" stroke-width="1.5"/>
+
+    <!-- Bodice & Crossed Immortal Collar -->
+    <path d="M352,335 L400,405 L448,335 L460,455 L340,455 Z" fill="url(#dressMain)" stroke="#f7cad6" stroke-width="1.5"/>
+    <path d="M362,332 L400,392 L438,332" fill="none" stroke="url(#goldSilk)" stroke-width="3.5"/>
+
+    <!-- High Waist Silk Sash & Silver Bell Tassel -->
+    <path d="M342,442 Q400,462 458,442 L462,466 Q400,486 338,466 Z" fill="#e56b86" stroke="url(#goldSilk)" stroke-width="2"/>
+    <!-- Waist Ribbon & Silver Bells -->
+    <path d="M400,468 C388,525 375,585 365,635" fill="none" stroke="#d9384a" stroke-width="2.5"/>
+    <path d="M400,468 C412,525 425,585 435,635" fill="none" stroke="#d9384a" stroke-width="2.5"/>
+    <circle cx="400" cy="468" r="9" fill="url(#goldSilk)"/>
+    <circle cx="365" cy="638" r="6.5" fill="#eef5f9" stroke="#8fa6b5" stroke-width="1.5"/>
+    <circle cx="435" cy="638" r="6.5" fill="#eef5f9" stroke="#8fa6b5" stroke-width="1.5"/>
+
+    <!-- Peach Blossom & Gold Butterfly Embroidery on Skirt (绣桃花与蝶纹) -->
+    <g transform="translate(355, 595) scale(0.85) rotate(-15)">
+      <use href="#butterfly"/>
+    </g>
+    <g transform="translate(442, 575) scale(0.75) rotate(18)">
+      <use href="#butterfly"/>
+    </g>
+    <g transform="translate(398, 625)">
+      <circle cx="0" cy="-6" r="5" fill="#ffd9e3"/>
+      <circle cx="6" cy="-2" r="5" fill="#ffd9e3"/>
+      <circle cx="4" cy="5" r="5" fill="#ffd9e3"/>
+      <circle cx="-4" cy="5" r="5" fill="#ffd9e3"/>
+      <circle cx="-6" cy="-2" r="5" fill="#ffd9e3"/>
+      <circle cx="0" cy="0" r="3" fill="#e2be78"/>
+    </g>
+
+    <!-- Flowing Sheer Blush Sleeves -->
+    <path d="M352,338 C310,365 268,425 245,495 C278,512 315,495 342,445 Z" fill="url(#dressGauze)" stroke="#ffdbe6" stroke-width="1.5"/>
+    <path d="M448,338 C490,365 532,425 555,495 C522,512 485,495 458,445 Z" fill="url(#dressGauze)" stroke="#ffdbe6" stroke-width="1.5"/>
+
+    <!-- Graceful Arms & Hands -->
+    <path d="M325,425 C305,405 288,378 278,355" fill="none" stroke="url(#skinGrad)" stroke-width="14" stroke-linecap="round"/>
+    <circle cx="275" cy="350" r="8" fill="url(#skinGrad)"/>
+    <path d="M475,425 C498,408 518,382 532,355" fill="none" stroke="url(#skinGrad)" stroke-width="14" stroke-linecap="round"/>
+    <circle cx="535" cy="350" r="8" fill="url(#skinGrad)"/>
+    <!-- Glowing Fox-Fire Peach Orb at Fingertips -->
+    <circle cx="542" cy="335" r="24" fill="#ffccd8" opacity="0.45" filter="url(#subtleGlow)"/>
+    <circle cx="542" cy="335" r="10" fill="#fff5f8"/>
+  </g>
+
+  <!-- 6. Head, Expressive Peach-Blossom Eyes & Fox Ears (浅狐耳，桃花眼，淡粉眼尾) -->
+  <g>
+    <!-- Neck & Collarbone -->
+    <path d="M385,295 L385,342 L415,342 L415,295 Z" fill="url(#skinGrad)"/>
+    <!-- Delicate Oval Face -->
+    <path d="M352,215 C352,175 372,155 400,155 C428,155 448,175 448,215 C448,258 424,298 400,304 C376,298 352,258 352,215 Z" fill="url(#skinGrad)" stroke="#f2c6be" stroke-width="1.2"/>
+
+    <!-- Soft Pink Eye-Corner Blush (淡粉眼尾) -->
+    <ellipse cx="370" cy="238" rx="16" ry="9" fill="#f48ca2" opacity="0.45" filter="url(#subtleGlow)"/>
+    <ellipse cx="430" cy="238" rx="16" ry="9" fill="#f48ca2" opacity="0.45" filter="url(#subtleGlow)"/>
+
+    <!-- Peach-Blossom Eyes (桃花眼，灵动狡黠) -->
+    <!-- Left Eye -->
+    <path d="M362,232 Q376,220 390,233 Q376,240 362,232 Z" fill="#ffffff"/>
+    <circle cx="377" cy="231" r="6.5" fill="#9c4156"/>
+    <circle cx="377" cy="231" r="3.2" fill="#2b1118"/>
+    <circle cx="379" cy="229" r="2" fill="#ffffff"/>
+    <path d="M359,233 Q375,218 391,232" fill="none" stroke="#2c1820" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M359,233 L353,228" fill="none" stroke="#c95b73" stroke-width="2" stroke-linecap="round"/>
+
+    <!-- Right Eye -->
+    <path d="M410,233 Q424,220 438,232 Q424,240 410,233 Z" fill="#ffffff"/>
+    <circle cx="423" cy="231" r="6.5" fill="#9c4156"/>
+    <circle cx="423" cy="231" r="3.2" fill="#2b1118"/>
+    <circle cx="425" cy="229" r="2" fill="#ffffff"/>
+    <path d="M409,232 Q425,218 441,233" fill="none" stroke="#2c1820" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M441,233 L447,228" fill="none" stroke="#c95b73" stroke-width="2" stroke-linecap="round"/>
+
+    <!-- Eyebrows & Cinnabar Forehead Huadian -->
+    <path d="M363,214 Q376,208 389,213" fill="none" stroke="#3b2830" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M411,213 Q424,208 437,214" fill="none" stroke="#3b2830" stroke-width="1.8" stroke-linecap="round"/>
+    <!-- Peach Petal Huadian on Forehead -->
+    <path d="M400,192 C403,198 403,204 400,208 C397,204 397,198 400,192 Z" fill="#e04f6b"/>
+    <circle cx="395" cy="201" r="2" fill="#f79bb0"/>
+    <circle cx="405" cy="201" r="2" fill="#f79bb0"/>
+
+    <!-- Playful Sweet Smile -->
+    <path d="M392,274 Q400,280 408,274" fill="none" stroke="#d95f76" stroke-width="2.2" stroke-linecap="round"/>
+    <ellipse cx="400" cy="275" rx="5" ry="2.5" fill="#ef8398" opacity="0.6"/>
+
+    <!-- Loosely Cascading Front Hair Lock Framing Face (松散垂落长发) -->
+    <path d="M350,205 C348,165 375,145 400,145 C425,145 452,165 450,205 C442,178 422,168 400,172 C378,168 358,178 350,205 Z" fill="url(#hairGrad)"/>
+    <path d="M352,190 C338,235 335,310 342,395 C350,335 355,265 362,215 Z" fill="url(#hairGrad)"/>
+    <path d="M448,190 C462,235 465,310 458,395 C450,335 445,265 438,215 Z" fill="url(#hairGrad)"/>
+
+    <!-- Delicate Pale Fox Ears (浅狐耳) -->
+    <!-- Left Fox Ear -->
+    <path d="M358,168 C338,132 325,95 332,78 C348,82 375,112 386,152 Z" fill="#fff7fa" stroke="#eabec9" stroke-width="2"/>
+    <path d="M362,158 C348,132 338,105 340,92 C352,98 370,122 378,148 Z" fill="#f7bac9" opacity="0.75"/>
+    <!-- Right Fox Ear -->
+    <path d="M442,168 C462,132 475,95 468,78 C452,82 425,112 414,152 Z" fill="#fff7fa" stroke="#eabec9" stroke-width="2"/>
+    <path d="M438,158 C452,132 462,105 460,92 C448,98 430,122 422,148 Z" fill="#f7bac9" opacity="0.75"/>
+    <!-- Silver Bell Ear Tassel -->
+    <circle cx="465" cy="115" r="5" fill="#eef5f9" stroke="#8fa6b5" stroke-width="1.2"/>
+    <path d="M465,120 L465,142" stroke="#d9384a" stroke-width="1.8"/>
+  </g>
+
+  <!-- 7. Swirling Peach Blossom Petals & Forest Mist (周身花瓣飘飞，林间薄雾) -->
+  <ellipse cx="400" cy="890" rx="360" ry="95" fill="url(#mistGlow)"/>
+  <g>
+    <use href="#petal" transform="translate(180, 290) rotate(25) scale(1.2)"/>
+    <use href="#petal" transform="translate(250, 440) rotate(-35) scale(0.9)"/>
+    <use href="#petal" transform="translate(145, 590) rotate(50) scale(1.4)"/>
+    <use href="#petal" transform="translate(560, 260) rotate(-20) scale(1.1)"/>
+    <use href="#petal" transform="translate(640, 420) rotate(40) scale(1.3)"/>
+    <use href="#petal" transform="translate(520, 680) rotate(-45) scale(1.0)"/>
+    <use href="#petal" transform="translate(290, 760) rotate(15) scale(1.2)"/>
+    <use href="#petal" transform="translate(475, 165) rotate(-15) scale(0.85)"/>
+  </g>
+  <!-- Warm Firefly Particles -->
+  <g fill="#fff8d6" opacity="0.85" filter="url(#subtleGlow)">
+    <circle cx="220" cy="360" r="3.5"/>
+    <circle cx="585" cy="310" r="4"/>
+    <circle cx="310" cy="520" r="2.8"/>
+    <circle cx="495" cy="540" r="3.2"/>
+    <circle cx="265" cy="690" r="3.5"/>
+    <circle cx="545" cy="740" r="4"/>
+  </g>
+</svg>

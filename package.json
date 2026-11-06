@@ -1,0 +1,36 @@
+{
+  "name": "dao-ascension-near",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DaoAscension (仙途寻道·问鼎天榜): On-Chain Xianxia Cultivation RPG on NEAR Protocol — NFTs as Accounts (NEP-171 + Sub-Accounts), Zero-Popup Function Call Keys, Spiritual Herb Farming (+HP), Artifact Forging (+ATK), Secret Realm Combat, and Sect Treasury Weekly Leaderboards settled via NEAR Intents.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "verify-demo": "tsx scripts/verify-demo.ts"
+  },
+  "dependencies": {
+    "@hot-labs/near-connect": "^0.11.4",
+    "lucide-react": "^0.460.0",
+    "near-api-js": "^7.4.0",
+    "near-connect-hooks": "^1.1.6",
+    "next": "14.2.25",
+    "openai": "^4.77.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^9.1.0",
+    "remark-gfm": "^4.0.1",
+    "tweetnacl": "^1.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.10",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
