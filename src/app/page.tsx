@@ -71,6 +71,7 @@ import {
   trRealm,
 } from "@/lib/xianxia/i18n";
 import {
+  CombatBattleReport,
   CombatTurnLog,
   PvpDuelOpponent,
   PvpDuelReport,
@@ -235,6 +236,26 @@ export default function JadeXianxiaH5Game() {
     tone: "gold" | "jade" | "rose";
   } | null>(null);
   const pvpTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 秘境战斗大捷/惜败结算弹窗 (12回合战斗演示完后弹出，杜绝提前剧透)
+  const [battleResultModal, setBattleResultModal] = useState<{
+    isOpen: boolean;
+    victory: boolean;
+    floor: number;
+    monsterName: string;
+    rewards?: CombatBattleReport["rewards"];
+    turnsTaken: number;
+    pillsConsumed: number;
+  } | null>(null);
+  const [visualBattleReport, setVisualBattleReport] =
+    useState<CombatBattleReport | null>(null);
+
+  // 秘境无限层数分页状态 (每页5重)
+  const [realmFloorPage, setRealmFloorPage] = useState<number>(0);
+
+  // 仙资收支御道簿弹窗状态 (NEAR 投入消耗与赚取分润总账)
+  const [isFinancialModalOpen, setIsFinancialModalOpen] =
+    useState<boolean>(false);
 
   interface LoadingTarget {
     type:
@@ -538,7 +559,8 @@ export default function JadeXianxiaH5Game() {
 
   const callGameApi = async (
     payload: Record<string, unknown>,
-    target?: LoadingTarget
+    target?: LoadingTarget,
+    options?: { deferSnapshot?: boolean }
   ) => {
     const isGlobalBlocking = target?.type !== "PLOT";
     if (isGlobalBlocking) setLoadingAction(true);
@@ -555,11 +577,13 @@ export default function JadeXianxiaH5Game() {
         body: JSON.stringify(bodyWithAccount),
       });
       const data = await res.json();
+      let applySnapshotFn = () => {};
       if (data.snapshot) {
         const nextCultivator = data.snapshot.cultivator;
+        const badges: ResourceDeltaBadge[] = [];
+        const slots: Record<string, number> = {};
+
         if (prevCultivator && nextCultivator) {
-          const badges: ResourceDeltaBadge[] = [];
-          const slots: Record<string, number> = {};
 
           const dStones = Number(
             (nextCultivator.spiritStones - prevCultivator.spiritStones).toFixed(1)
@@ -666,7 +690,9 @@ export default function JadeXianxiaH5Game() {
               isDeduction: dAtk < 0,
             });
           }
+        }
 
+        applySnapshotFn = () => {
           if (badges.length > 0) {
             setDeltaBannerItems(badges);
             setSlotDeltas(slots);
@@ -680,25 +706,29 @@ export default function JadeXianxiaH5Game() {
               xianxiaAudio.playItemDeduct();
             }
           }
-        }
 
-        // 触发专项主题音效
-        const act = String(payload.action || "");
-        if (act === "PLANT_HERB") xianxiaAudio.playPlant();
-        else if (act === "WATER_SPIRIT_SPRING") xianxiaAudio.playWater();
-        else if (act === "HARVEST_AND_REFINE") xianxiaAudio.playHarvest();
-        else if (act === "FORGE_ARTIFACT") xianxiaAudio.playForge();
-        else if (
-          act === "ROLL_SPIRIT_ROOT" ||
-          act === "RESHAPE_DAO_BODY" ||
-          act === "RECHARGE_SPIRIT_STONES" ||
-          act === "CLAIM_MAIL_ATTACHMENT" ||
-          act === "CLAIM_ALL_MAILS"
-        ) {
-          xianxiaAudio.playHarvest();
-        }
+          // 触发专项主题音效
+          const act = String(payload.action || "");
+          if (act === "PLANT_HERB") xianxiaAudio.playPlant();
+          else if (act === "WATER_SPIRIT_SPRING") xianxiaAudio.playWater();
+          else if (act === "HARVEST_AND_REFINE") xianxiaAudio.playHarvest();
+          else if (act === "FORGE_ARTIFACT") xianxiaAudio.playForge();
+          else if (
+            act === "ROLL_SPIRIT_ROOT" ||
+            act === "RESHAPE_DAO_BODY" ||
+            act === "RECHARGE_SPIRIT_STONES" ||
+            act === "CLAIM_MAIL_ATTACHMENT" ||
+            act === "CLAIM_ALL_MAILS"
+          ) {
+            xianxiaAudio.playHarvest();
+          }
 
-        setSnapshot(data.snapshot);
+          setSnapshot(data.snapshot);
+        };
+
+        if (!options?.deferSnapshot) {
+          applySnapshotFn();
+        }
       }
 
       // 若后端返回道具或灵石不足等错误，立即弹出醒目警示框并闪烁对应资源槽
@@ -751,7 +781,10 @@ export default function JadeXianxiaH5Game() {
         });
       }
 
-      return data;
+      return {
+        ...data,
+        applySnapshot: applySnapshotFn,
+      };
     } finally {
       if (isGlobalBlocking) {
         setLoadingAction(false);
@@ -1271,6 +1304,7 @@ export default function JadeXianxiaH5Game() {
   const handleStartVisualBattle = async (floorNumber: number) => {
     if (isBattling || loadingAction) return;
     setSelectedFloor(floorNumber);
+    setBattleResultModal(null);
     const data = await callGameApi(
       {
         action: "CHALLENGE_REALM",
@@ -1281,11 +1315,13 @@ export default function JadeXianxiaH5Game() {
         id: floorNumber,
         textZh: `御剑出鞘挑战第${floorNumber}重...`,
         textEn: `Challenging Tier ${floorNumber}...`,
-      }
+      },
+      { deferSnapshot: true }
     );
     const report = data?.actionResult?.report;
     if (!report || !report.logs) return;
 
+    setVisualBattleReport(report);
     setIsBattling(true);
     setBattleTurnIdx(0);
 
@@ -1302,14 +1338,23 @@ export default function JadeXianxiaH5Game() {
         setMonsterAnimState("idle");
         setArenaFloatingDmg(null);
 
+        // 战斗动画完整演示结束后，才更新玩家属性与资源快照，避免提前剧透胜负
+        if (data?.applySnapshot) {
+          data.applySnapshot();
+        }
+
         if (report.victory) {
           xianxiaAudio.playVictory();
-          triggerFloatingStat(
-            t(
-              `试炼告捷 · 获玄铁 +${report.rewards?.ironOres} · 灵石 +${report.rewards?.spiritStones}`,
-              `Victory · +${report.rewards?.ironOres} Ores · +${report.rewards?.spiritStones} Stones`
-            )
-          );
+          setBattleResultModal({
+            isOpen: true,
+            victory: true,
+            floor: report.floor,
+            monsterName: report.monsterName,
+            rewards: report.rewards,
+            turnsTaken: report.turnsTaken,
+            pillsConsumed: report.pillsConsumed,
+          });
+
           if (tutorialStage === 5) {
             setTutorialStage(6);
             triggerUnlockNotice(
@@ -1319,6 +1364,16 @@ export default function JadeXianxiaH5Game() {
               )
             );
           }
+        } else {
+          xianxiaAudio.playMonsterAttack();
+          setBattleResultModal({
+            isOpen: true,
+            victory: false,
+            floor: report.floor,
+            monsterName: report.monsterName,
+            turnsTaken: report.turnsTaken,
+            pillsConsumed: report.pillsConsumed,
+          });
         }
         return;
       }
@@ -1391,7 +1446,8 @@ export default function JadeXianxiaH5Game() {
         id: opponent.id,
         textZh: `拔剑论剑 · 迎战【${opponent.daoName}】上链中...`,
         textEn: `Challenging ${opponent.daoName}...`,
-      }
+      },
+      { deferSnapshot: true }
     );
 
     const report: PvpDuelReport | undefined = data?.actionResult?.report;
@@ -1413,19 +1469,24 @@ export default function JadeXianxiaH5Game() {
         setPvpOpponentAnim("idle");
         setPvpFloatingDmg(null);
 
+        // 论剑推演动画播完后才更新快照与扣减飘字
+        if (data?.applySnapshot) {
+          data.applySnapshot();
+        }
+
         if (report.victory) {
           xianxiaAudio.playVictory();
           triggerFloatingStat(
             t(
-              `🏆 论剑大捷！积分 +${report.rewards.duelPointsDelta} · 获灵石 +${report.rewards.spiritStones}`,
-              `🏆 Duel Victory! +${report.rewards.duelPointsDelta} Pts · +${report.rewards.spiritStones} Stones`
+              `🏆 论剑大捷！演武积分 +${report.rewards.duelPointsDelta}，问鼎周天榜位跃升！`,
+              `🏆 Duel Victory! +${report.rewards.duelPointsDelta} Pts`
             )
           );
         } else {
           xianxiaAudio.playMonsterAttack();
           triggerFloatingStat(
             t(
-              `论剑惜败！积分 ${report.rewards.duelPointsDelta}，请淬炼飞剑后再战！`,
+              `论剑惜败！扣除 ${Math.abs(report.rewards.duelPointsDelta)} 演武积分，请淬炼飞剑后再战！`,
               `Duel Defeat! ${report.rewards.duelPointsDelta} Pts`
             )
           );
@@ -2217,6 +2278,21 @@ export default function JadeXianxiaH5Game() {
               </span>
             )}
           </button>
+          {/* 仙资收支总账入口 */}
+          <button
+            type="button"
+            onClick={() => setIsFinancialModalOpen(true)}
+            className="text-[#E0C99B] hover:text-[#FFFFFF] transition-colors flex items-center gap-1.5 px-2 py-0.5 border border-[#C8AA72]/60 bg-[#162724] shadow-xs whitespace-nowrap"
+            title="查看太虚仙宗仙资御道收支簿（NEAR 累计消耗投入与周榜赚取分润总账）"
+          >
+            <Coins className="w-3.5 h-3.5 text-[#F2CE85]" />
+            <span className="font-serif text-[11px] text-[#F2CE85] hidden sm:inline">
+              {t("仙资总账", "Ledger")}
+            </span>
+            <span className="font-mono text-[10.5px] text-[#86ABA3]">
+              -{(cultivator.financialStats?.totalNearSpent || 0.2).toFixed(1)}N / +{(cultivator.financialStats?.totalNearEarned || 0).toFixed(1)}N
+            </span>
+          </button>
           {/* 灵石与 NEAR 汇率指示器与充值入口 */}
           <button
             type="button"
@@ -2276,6 +2352,18 @@ export default function JadeXianxiaH5Game() {
                 <span className="text-[#5FE3C8] font-mono">
                   🏆 {t("论剑积分", "ELO")}: {cultivator.scores.duelScore}
                 </span>
+                <span className="text-[#C8AA72]/50">|</span>
+                <button
+                  type="button"
+                  onClick={() => setIsFinancialModalOpen(true)}
+                  className="text-[#F2CE85] hover:text-[#FFFFFF] underline flex items-center gap-1 font-mono cursor-pointer"
+                  title="点击查看仙资收支御道簿"
+                >
+                  <span>📜 仙资总账:</span>
+                  <span className="text-[#FCA5A5]">-{(cultivator.financialStats?.totalNearSpent || 0.2).toFixed(1)}N</span>
+                  <span>/</span>
+                  <span className="text-[#86EFAC]">+{(cultivator.financialStats?.totalNearEarned || 0).toFixed(1)}N</span>
+                </button>
               </div>
             </div>
           </div>
@@ -3249,27 +3337,73 @@ export default function JadeXianxiaH5Game() {
                   </h3>
                   <p className="text-xs font-serif text-[#587570] mt-0.5">
                     {t(
-                      "气血低于五成半时将自动服用灵圃炼制的回春灵丹；降伏守护玄兽可获玄铁、陨铁与灵石",
-                      "Auto-consumes farmed healing pills below 55% HP; defeat Guardians to obtain forging ores"
+                      "气血低于五成半时将自动服用灵圃炼制的回春灵丹；降伏守护玄兽可获玄铁、陨铁与仙种，登榜享周天榜 50% 国库灵石大分润",
+                      "Auto-consumes healing pills below 55% HP; defeat Guardians to obtain ores & seeds, climb leaderboards for weekly treasury dividends"
                     )}
                   </p>
                 </div>
 
-                <div className="flex gap-1.5">
-                  {catalogs.realmFloors.map((fl) => (
-                    <button
-                      key={fl.floor}
-                      disabled={isBattling}
-                      onClick={() => setSelectedFloor(fl.floor)}
-                      className={`px-2.5 py-1 text-xs font-serif transition ${
-                        selectedFloor === fl.floor
-                          ? "xianxia-btn-gold font-bold"
-                          : "border border-[#C8AA72]/40 bg-white/70 text-[#587570] hover:text-[#253D39]"
-                      }`}
-                    >
-                      {t(`第${fl.floor}重`, `Tier ${fl.floor}`)}
-                    </button>
-                  ))}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={isBattling || realmFloorPage === 0}
+                    onClick={() => setRealmFloorPage((p) => Math.max(0, p - 1))}
+                    className="px-2 py-1 text-xs font-serif border border-[#C8AA72]/60 bg-white/80 hover:bg-[#FAF6EC] disabled:opacity-40 text-[#587570]"
+                  >
+                    ◀ 上五重
+                  </button>
+
+                  {Array.from({ length: 5 }, (_, i) => {
+                    const flNum = realmFloorPage * 5 + i + 1;
+                    const isCleared = flNum <= cultivator.highestFloorCleared;
+                    const isNextTarget = flNum === cultivator.highestFloorCleared + 1;
+                    const isLocked = flNum > cultivator.highestFloorCleared + 1;
+                    const isSelected = selectedFloor === flNum;
+
+                    return (
+                      <button
+                        key={flNum}
+                        disabled={isBattling || isLocked}
+                        onClick={() => setSelectedFloor(flNum)}
+                        className={`px-3 py-1 text-xs font-serif transition flex items-center gap-1 ${
+                          isSelected
+                            ? "xianxia-btn-gold font-bold shadow-xs"
+                            : isCleared
+                            ? "border border-[#52D1B2]/60 bg-[#F2FBF8] text-[#1E574B] hover:bg-[#E3F6F0]"
+                            : isNextTarget
+                            ? "border-2 border-[#D4AF37] bg-[#FFFBEB] text-[#92400E] font-bold"
+                            : "border border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-60"
+                        }`}
+                      >
+                        {isCleared && <span className="text-[10px] text-[#059669]">✓</span>}
+                        {isNextTarget && <span className="text-[10px] text-[#D97706]">⚡</span>}
+                        {isLocked && <span className="text-[10px] text-slate-400">🔒</span>}
+                        <span>{t(`第${flNum}重`, `T${flNum}`)}</span>
+                      </button>
+                    );
+                  })}
+
+                  <button
+                    type="button"
+                    disabled={isBattling}
+                    onClick={() => setRealmFloorPage((p) => p + 1)}
+                    className="px-2 py-1 text-xs font-serif border border-[#C8AA72]/60 bg-white/80 hover:bg-[#FAF6EC] text-[#587570]"
+                  >
+                    下五重 ▶
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isBattling}
+                    onClick={() => {
+                      const target = cultivator.highestFloorCleared + 1;
+                      setSelectedFloor(target);
+                      setRealmFloorPage(Math.floor(cultivator.highestFloorCleared / 5));
+                    }}
+                    className="ml-auto text-[11px] font-serif text-[#92400E] hover:text-[#78350F] underline flex items-center gap-1"
+                  >
+                    <span>⚡ 直达待破关卡 (第 {cultivator.highestFloorCleared + 1} 重)</span>
+                  </button>
                 </div>
               </div>
 
@@ -3279,12 +3413,12 @@ export default function JadeXianxiaH5Game() {
                   catalogs.realmFloors[0];
                 const activeLog =
                   isBattling &&
-                  latestBattleReport &&
-                  latestBattleReport.logs[battleTurnIdx - 1];
+                  visualBattleReport &&
+                  visualBattleReport.logs[battleTurnIdx - 1];
 
                 const displayHeroHp = activeLog
                   ? activeLog.cultivatorHpAfter
-                  : cultivator.maxHp;
+                  : cultivator.hp;
                 const displayMonsterHp = activeLog
                   ? activeLog.monsterHpAfter
                   : currentFloorCfg.monsterHp;
@@ -3391,19 +3525,27 @@ export default function JadeXianxiaH5Game() {
                           : latestBattleReport && !isBattling
                           ? latestBattleReport.victory
                             ? t(
-                                `试炼通过 · 获赐玄铁 +${latestBattleReport.rewards?.ironOres}、陨铁 +${latestBattleReport.rewards?.meteorOres}、灵石 +${latestBattleReport.rewards?.spiritStones}`,
-                                `Victory · +${latestBattleReport.rewards?.ironOres} Iron Ores & +${latestBattleReport.rewards?.spiritStones} Spirit Stones`
+                                `试炼通过 · 获赐玄铁 +${latestBattleReport.rewards?.ironOres}${
+                                  (latestBattleReport.rewards?.meteorOres || 0) > 0
+                                    ? `、陨铁 +${latestBattleReport.rewards?.meteorOres}`
+                                    : ""
+                                }、${latestBattleReport.rewards?.seedTier || 1}阶仙种×1`,
+                                `Victory · +${latestBattleReport.rewards?.ironOres} Ores & Seeds`
                               )
                             : t(
                                 "气血稍逊，请回灵圃服丹或铸造更高品阶仙剑后再试",
                                 "Return to the Herb Garden or Sword Forge to strengthen your Cultivator"
                               )
                           : t(
-                                `本重镇守玄灵：${currentFloorCfg.monsterName}（通过可获玄铁 +${currentFloorCfg.dropIronOres}、灵石 +${currentFloorCfg.rewardSpiritStones}）`,
+                                `本重镇守：${currentFloorCfg.monsterName} · ${currentFloorCfg.monsterTitle}（通过掉落玄铁 +${currentFloorCfg.dropIronOres}${
+                                  currentFloorCfg.dropMeteorOres > 0
+                                    ? `、陨铁 +${currentFloorCfg.dropMeteorOres}`
+                                    : ""
+                                }、${currentFloorCfg.dropSeedTier}阶仙种×1、诛魔积分 +${currentFloorCfg.slayerScorePoints}）`,
                                 `Guardian: ${trMonsterName(
                                   currentFloorCfg.monsterName,
                                   "en"
-                                )} (Drops +${currentFloorCfg.dropIronOres} Ores)`
+                                )} (Drops +${currentFloorCfg.dropIronOres} Ores & Seeds)`
                               )}
                       </div>
 
@@ -3604,7 +3746,7 @@ export default function JadeXianxiaH5Game() {
                             <div className="flex justify-between pt-1 border-t border-[#C8AA72]/20 text-[10px]">
                               <span className="text-[#8A6828] font-semibold">{t("胜者犒赏", "Rewards")}:</span>
                               <span className="font-mono text-[#2E6B5E] font-bold">
-                                +{opp.rewardSpiritStones}石 / +{opp.rewardDuelPoints}分
+                                +{opp.rewardDuelPoints} {t("演武积分 (冲周榜)", "ELO Points")}
                               </span>
                             </div>
                           </div>
@@ -4469,8 +4611,8 @@ export default function JadeXianxiaH5Game() {
                   <span>
                     {pvpDuelReport.victory
                       ? t(
-                          `论剑告捷！积分 +${pvpDuelReport.rewards.duelPointsDelta} · 获灵石 +${pvpDuelReport.rewards.spiritStones}`,
-                          `Victory! Duel Pts +${pvpDuelReport.rewards.duelPointsDelta} · +${pvpDuelReport.rewards.spiritStones} Stones`
+                          `论剑大捷！演武积分 +${pvpDuelReport.rewards.duelPointsDelta}，问鼎周天榜位跃升！`,
+                          `Victory! Duel Pts +${pvpDuelReport.rewards.duelPointsDelta}`
                         )
                       : t(
                           `论剑惜败！扣除 ${Math.abs(pvpDuelReport.rewards.duelPointsDelta)} 积分，重整旗鼓再战！`,
@@ -4829,6 +4971,380 @@ export default function JadeXianxiaH5Game() {
               </button>
             </div>
           </JadeGlassPanel>
+        </div>
+      )}
+
+      {/* 试炼战斗大捷/惜败结算弹窗 (12回合战斗演示完后弹出，高对比度国风卷轴风格，杜绝剧透) */}
+      {battleResultModal && battleResultModal.isOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-fadeIn"
+          onClick={() => setBattleResultModal(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md"
+          >
+            <JadeGlassPanel
+              withTopClasp
+              withTassels
+              className="p-6 font-serif shadow-2xl border-2 border-[#C8AA72] !bg-[#FFFDF7]"
+            >
+              {/* 弹窗顶栏 */}
+              <div className="flex items-center justify-between pb-3 border-b border-[#C8AA72]/50">
+                <div className="flex items-center gap-2">
+                  <CinnabarSeal
+                    text={battleResultModal.victory ? "捷" : "惜"}
+                    variant="rect"
+                  />
+                  <h3 className="text-base sm:text-lg font-bold text-[#162724] tracking-wider">
+                    {battleResultModal.victory
+                      ? t("试炼大捷 · 荡平妖邪", "Trial Victory · Guardian Banished")
+                      : t("试炼惜败 · 暂避锋芒", "Trial Defeat · Retreat to Abode")}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setBattleResultModal(null)}
+                  className="text-[#64827D] hover:text-[#253D39] transition-colors p-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* 战果主说明横幅 */}
+              <div
+                style={{
+                  backgroundColor: battleResultModal.victory ? "#0E2922" : "#2B0B0B",
+                }}
+                className={`mt-4 px-4 py-3 border-2 flex items-center gap-2.5 text-xs sm:text-sm font-bold shadow-md ${
+                  battleResultModal.victory
+                    ? "border-[#52D1B2] text-[#FDE68A]"
+                    : "border-[#F87171] text-[#FCA5A5]"
+                }`}
+              >
+                <span>
+                  {battleResultModal.victory
+                    ? t(
+                        `恭贺道友仗剑斩杀第 ${battleResultModal.floor} 重镇守【${battleResultModal.monsterName}】（耗时 ${battleResultModal.turnsTaken} 回合${
+                          battleResultModal.pillsConsumed > 0
+                            ? `，灵丹回血 ${battleResultModal.pillsConsumed} 次`
+                            : ""
+                        }）！`,
+                        `Guardian [${battleResultModal.monsterName}] defeated in ${battleResultModal.turnsTaken} turns!`
+                      )
+                    : t(
+                        `道友激战 ${battleResultModal.turnsTaken} 回合，终因气血不支惜败于【${battleResultModal.monsterName}】之手。道身已由宗门灵符接引回洞府调养。`,
+                        `Defeated by [${battleResultModal.monsterName}] in turn ${battleResultModal.turnsTaken}. Retreat to heal!`
+                      )}
+                </span>
+              </div>
+
+              {/* 胜利掉落物资清单 */}
+              {battleResultModal.victory && battleResultModal.rewards && (
+                <div className="my-4 p-3.5 bg-[#FAF6EC] border border-[#C8AA72]/60 shadow-inner">
+                  <div className="text-xs font-bold text-[#8A6828] mb-2 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#D97706]" />
+                    <span>{t("降伏妖魔 · 仙缘掉落收获", "Guardian Drop Rewards")}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs font-serif font-bold">
+                    <div className="p-2 bg-white border border-[#C8AA72]/40 flex items-center justify-between text-[#253D39]">
+                      <span>⛏️ 百炼玄铁</span>
+                      <strong className="text-[#059669] font-mono font-bold text-sm">
+                        +{battleResultModal.rewards.ironOres}
+                      </strong>
+                    </div>
+                    {battleResultModal.rewards.meteorOres > 0 && (
+                      <div className="p-2 bg-white border border-[#C8AA72]/40 flex items-center justify-between text-[#253D39]">
+                        <span>☄️ 星辰陨铁</span>
+                        <strong className="text-[#7C3AED] font-mono font-bold text-sm">
+                          +{battleResultModal.rewards.meteorOres}
+                        </strong>
+                      </div>
+                    )}
+                    <div className="p-2 bg-white border border-[#C8AA72]/40 flex items-center justify-between text-[#253D39]">
+                      <span>🌱 {battleResultModal.rewards.seedTier}阶灵草仙种</span>
+                      <strong className="text-[#0D9488] font-mono font-bold text-sm">
+                        +1
+                      </strong>
+                    </div>
+                    <div className="p-2 bg-white border border-[#C8AA72]/40 flex items-center justify-between text-[#253D39]">
+                      <span>⚔️ 诛魔天榜积分</span>
+                      <strong className="text-[#B45309] font-mono font-bold text-sm">
+                        +{battleResultModal.rewards.slayerPoints}
+                      </strong>
+                    </div>
+                    <div className="p-2 bg-white border border-[#C8AA72]/40 flex items-center justify-between text-[#253D39] col-span-2">
+                      <span>✨ 历练修为提升</span>
+                      <strong className="text-[#2563EB] font-mono font-bold text-sm">
+                        +{battleResultModal.rewards.exp} EXP
+                      </strong>
+                    </div>
+                  </div>
+
+                  {battleResultModal.rewards.realmBreakthrough && (
+                    <div className="mt-3 p-2.5 bg-[#FFFBEB] border border-[#F59E0B] text-center text-xs font-bold text-[#B45309] animate-pulse">
+                      🌟 天道感应 · 恭贺道友境界突破至【{battleResultModal.rewards.realmBreakthrough}】！
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 失败修整指引 */}
+              {!battleResultModal.victory && (
+                <div className="my-4 p-3.5 bg-[#FFF5F5] border border-[#F87171] shadow-inner text-xs font-serif leading-relaxed text-[#7F1D1D]">
+                  <p className="font-bold mb-1.5 flex items-center gap-1.5">
+                    <span className="text-base">💡</span>
+                    <span>{t("老祖点拨 · 提升战力妙法", "Elder Advice · Ways to Grow Stronger")}</span>
+                  </p>
+                  <ul className="list-disc pl-4 space-y-1">
+                    <li>前往【壹·洞府灵圃】播种灵草，采收炼制回春丹直接永久提升气血上限 HP。</li>
+                    <li>前往【贰·天工剑庐】消耗玄铁陨铁铸造更高阶本命飞剑，大幅提升攻击力 ATK。</li>
+                  </ul>
+                </div>
+              )}
+
+              {/* 底部操作按钮 */}
+              <div className="pt-3 border-t border-[#C8AA72]/40 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setBattleResultModal(null)}
+                  className="px-4 py-2 text-xs font-serif font-bold text-[#476660] hover:text-[#253D39] border border-[#C8AA72]/60 bg-white shadow-xs"
+                >
+                  {t("闭关返府", "Return to Abode")}
+                </button>
+                {battleResultModal.victory ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextFloor = battleResultModal.floor + 1;
+                      setBattleResultModal(null);
+                      setSelectedFloor(nextFloor);
+                      setRealmFloorPage(Math.floor(nextFloor / 5));
+                      handleStartVisualBattle(nextFloor);
+                    }}
+                    className="xianxia-btn-gold px-4 py-2 text-xs font-serif font-bold flex items-center gap-1.5 shadow-md"
+                  >
+                    <Swords className="w-3.5 h-3.5 text-[#7D5E2A]" />
+                    <span>{t(`乘胜挑战第 ${battleResultModal.floor + 1} 重 →`, `Challenge Tier ${battleResultModal.floor + 1} →`)}</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const fl = battleResultModal.floor;
+                      setBattleResultModal(null);
+                      handleStartVisualBattle(fl);
+                    }}
+                    className="xianxia-btn-gold px-4 py-2 text-xs font-serif font-bold flex items-center gap-1.5 shadow-md"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 text-[#7D5E2A]" />
+                    <span>{t("再次挑战此重", "Try Again")}</span>
+                  </button>
+                )}
+              </div>
+            </JadeGlassPanel>
+          </div>
+        </div>
+      )}
+
+      {/* 仙资收支御道簿弹窗 (NEAR 消耗投入与赚取分润总账) */}
+      {isFinancialModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-fadeIn"
+          onClick={() => setIsFinancialModalOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-2xl max-h-[85vh] flex flex-col"
+          >
+            <JadeGlassPanel
+              withTopClasp
+              withTassels
+              className="p-5 sm:p-6 font-serif shadow-2xl border-2 border-[#C8AA72] !bg-[#FFFDF7] flex flex-col max-h-[85vh]"
+            >
+              {/* 弹窗顶栏 */}
+              <div className="flex items-center justify-between pb-3 border-b border-[#C8AA72]/50 shrink-0">
+                <div className="flex items-center gap-2">
+                  <CinnabarSeal text="账" variant="rect" />
+                  <div>
+                    <h3 className="text-base sm:text-lg font-bold text-[#162724] tracking-wider">
+                      {t("太虚仙宗 · 仙资收支御道簿", "Taixu Sect · Financial Ledger")}
+                    </h3>
+                    <p className="text-[11px] text-[#64827D]">
+                      {t(
+                        "记录修真道身 NFT 结契、灵根洗炼、真身重塑、灵石充值与周天榜国库分润之全量收支账目",
+                        "Audit ledger tracking NEAR mint, root rolls, body reshaping, recharges, and weekly dividends."
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsFinancialModalOpen(false)}
+                  className="text-[#64827D] hover:text-[#253D39] transition-colors p-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* 四大汇总卡片 */}
+              {(() => {
+                const fin = cultivator.financialStats || {
+                  totalNearSpent: 0.2,
+                  totalNearEarned: 0,
+                  totalStonesRecharged: 0,
+                  totalStonesDividends: 0,
+                  records: [],
+                };
+                return (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 my-4 shrink-0">
+                    <div className="p-3 bg-[#FEF2F2] border border-[#F87171] text-center shadow-xs">
+                      <div className="text-[11px] text-[#991B1B] font-bold">
+                        {t("累计投入消耗 NEAR", "Total NEAR Spent")}
+                      </div>
+                      <div className="font-mono text-lg font-extrabold text-[#DC2626] mt-1 tabular-nums">
+                        -{fin.totalNearSpent.toFixed(2)} N
+                      </div>
+                      <div className="text-[9.5px] text-[#B91C1C] mt-0.5 opacity-80">
+                        {t("铸身+洗根+充值", "Mint + Rolls + Buy")}
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-[#F0FDF4] border border-[#4ADE80] text-center shadow-xs">
+                      <div className="text-[11px] text-[#166534] font-bold">
+                        {t("累计赚取分润 NEAR", "Total NEAR Earned")}
+                      </div>
+                      <div className="font-mono text-lg font-extrabold text-[#16A34A] mt-1 tabular-nums">
+                        +{fin.totalNearEarned.toFixed(2)} N
+                      </div>
+                      <div className="text-[9.5px] text-[#15803D] mt-0.5 opacity-80">
+                        {t("周天榜国库分润", "Weekly Dividends")}
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-[#FFFBEB] border border-[#FCD34D] text-center shadow-xs">
+                      <div className="text-[11px] text-[#92400E] font-bold">
+                        {t("累计充值灵石", "Stones Recharged")}
+                      </div>
+                      <div className="font-mono text-lg font-extrabold text-[#D97706] mt-1 tabular-nums">
+                        +{fin.totalStonesRecharged} 💎
+                      </div>
+                      <div className="text-[9.5px] text-[#B45309] mt-0.5 opacity-80">
+                        {t("注入真元灵池", "Stones Purchased")}
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-[#F5F3FF] border border-[#C4B5FD] text-center shadow-xs">
+                      <div className="text-[11px] text-[#5B21B6] font-bold">
+                        {t("周榜分润灵石", "Dividend Stones")}
+                      </div>
+                      <div className="font-mono text-lg font-extrabold text-[#7C3AED] mt-1 tabular-nums">
+                        +{fin.totalStonesDividends} 💎
+                      </div>
+                      <div className="text-[9.5px] text-[#6D28D9] mt-0.5 opacity-80">
+                        {t("天道周日 24:00 发放", "Sunday Decrees")}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* 明细交易流水记录表 (可滚动) */}
+              <div className="flex-1 overflow-y-auto border border-[#C8AA72]/50 bg-white my-1">
+                <table className="w-full text-xs font-serif text-left border-collapse">
+                  <thead className="bg-[#12221F] text-[#F2CE85] text-[11px] sticky top-0 z-10 font-bold">
+                    <tr>
+                      <th className="p-2.5 border-b border-[#C8AA72]/40 whitespace-nowrap">时辰 / 记录</th>
+                      <th className="p-2.5 border-b border-[#C8AA72]/40">仙资事由</th>
+                      <th className="p-2.5 border-b border-[#C8AA72]/40 text-right whitespace-nowrap">NEAR 变动</th>
+                      <th className="p-2.5 border-b border-[#C8AA72]/40 text-right whitespace-nowrap">灵石变动</th>
+                      <th className="p-2.5 border-b border-[#C8AA72]/40 text-center whitespace-nowrap">存证凭据</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#C8AA72]/20 text-[#253D39]">
+                    {(() => {
+                      const records = cultivator.financialStats?.records || [];
+                      if (records.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={5} className="p-8 text-center text-[#86ABA3] italic">
+                              暂无财务流水记录
+                            </td>
+                          </tr>
+                        );
+                      }
+                      return records.map((rec) => {
+                        const dateStr = new Date(rec.timestamp).toLocaleTimeString([], {
+                          month: "2-digit",
+                          day: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        });
+                        return (
+                          <tr key={rec.id} className="hover:bg-[#FAF6EC] transition-colors">
+                            <td className="p-2.5 font-mono text-[11px] text-[#64827D] whitespace-nowrap">
+                              {dateStr}
+                            </td>
+                            <td className="p-2.5 font-bold">
+                              {lang === "en" ? rec.titleEn : rec.titleZh}
+                            </td>
+                            <td className="p-2.5 text-right font-mono font-bold whitespace-nowrap">
+                              {rec.nearDelta < 0 ? (
+                                <span className="text-[#DC2626]">{rec.nearDelta.toFixed(2)} N</span>
+                              ) : rec.nearDelta > 0 ? (
+                                <span className="text-[#16A34A]">+{rec.nearDelta.toFixed(2)} N</span>
+                              ) : (
+                                <span className="text-slate-400">-</span>
+                              )}
+                            </td>
+                            <td className="p-2.5 text-right font-mono font-bold whitespace-nowrap">
+                              {rec.stonesDelta !== 0 ? (
+                                <span className={rec.stonesDelta > 0 ? "text-[#D97706]" : "text-[#B91C1C]"}>
+                                  {rec.stonesDelta > 0 ? `+${rec.stonesDelta}` : rec.stonesDelta} 💎
+                                </span>
+                              ) : (
+                                <span className="text-slate-400">-</span>
+                              )}
+                            </td>
+                            <td className="p-2.5 text-center font-mono text-[10px] text-[#64827D] whitespace-nowrap">
+                              {rec.txHash ? rec.txHash.slice(0, 10) + "..." : "链上存证"}
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* 弹窗底部操作 */}
+              <div className="pt-3 border-t border-[#C8AA72]/40 flex items-center justify-between gap-3 shrink-0">
+                <div className="text-[11px] text-[#86ABA3] font-mono">
+                  国库周俸结算机制：每周日 24:00 (UTC+8) 准时分润
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsFinancialModalOpen(false);
+                      setIsRechargeModalOpen(true);
+                    }}
+                    className="xianxia-btn-gold px-3.5 py-1.5 text-xs font-serif font-bold flex items-center gap-1 shadow-xs"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-[#7D5E2A]" />
+                    <span>{t("💎 补充灵石", "💎 Buy Stones")}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsFinancialModalOpen(false)}
+                    className="px-3.5 py-1.5 text-xs font-serif font-bold text-[#476660] hover:text-[#253D39] border border-[#C8AA72]/60 bg-white shadow-xs"
+                  >
+                    {t("合上账簿", "Close Ledger")}
+                  </button>
+                </div>
+              </div>
+            </JadeGlassPanel>
+          </div>
         </div>
       )}
 

@@ -15,6 +15,8 @@ import {
   CelestialMailItem,
   CombatBattleReport,
   CombatTurnLog,
+  CultivatorFinancialRecord,
+  CultivatorFinancialStats,
   CultivatorNftAccount,
   ElderAiCounsel,
   ForgeBlueprintConfig,
@@ -122,93 +124,94 @@ export const FORGE_BLUEPRINTS_CATALOG: ForgeBlueprintConfig[] = [
   },
 ];
 
-export const SECRET_REALM_FLOORS: SecretRealmFloorConfig[] = [
-  {
-    floor: 1,
-    monsterName: "黑风幽冥狼",
-    monsterTitle: "黑风渊外围妖兽 · 一阶",
-    recommendedHp: 140,
-    recommendedAtk: 35,
-    monsterHp: 170,
-    monsterAtk: 34,
-    monsterDef: 8,
-    entryFeeStones: 10,
-    rewardSpiritStones: 48,
-    rewardExp: 90,
-    dropIronOres: 3,
-    dropMeteorOres: 1,
-    dropSeedTier: 1,
-    slayerScorePoints: 60,
-  },
-  {
-    floor: 2,
-    monsterName: "赤甲毒火蝎王",
-    monsterTitle: "熔岩古窟统领 · 二阶",
-    recommendedHp: 220,
-    recommendedAtk: 68,
-    monsterHp: 310,
-    monsterAtk: 58,
-    monsterDef: 16,
-    entryFeeStones: 15,
-    rewardSpiritStones: 88,
-    rewardExp: 160,
-    dropIronOres: 4,
-    dropMeteorOres: 1,
-    dropSeedTier: 2,
-    slayerScorePoints: 135,
-  },
-  {
-    floor: 3,
-    monsterName: "玄冰双头魔蛟",
-    monsterTitle: "寒渊秘境霸主 · 三阶",
-    recommendedHp: 330,
-    recommendedAtk: 110,
-    monsterHp: 520,
-    monsterAtk: 88,
-    monsterDef: 26,
-    entryFeeStones: 20,
-    rewardSpiritStones: 145,
-    rewardExp: 260,
-    dropIronOres: 6,
-    dropMeteorOres: 2,
-    dropSeedTier: 2,
-    slayerScorePoints: 240,
-  },
-  {
-    floor: 4,
-    monsterName: "炼狱血煞魔将",
-    monsterTitle: "镇魔古塔守卫 · 四阶",
-    recommendedHp: 460,
-    recommendedAtk: 165,
-    monsterHp: 780,
-    monsterAtk: 125,
-    monsterDef: 38,
-    entryFeeStones: 30,
-    rewardSpiritStones: 230,
-    rewardExp: 400,
-    dropIronOres: 8,
-    dropMeteorOres: 3,
-    dropSeedTier: 3,
-    slayerScorePoints: 390,
-  },
-  {
-    floor: 5,
-    monsterName: "九幽吞天魔帝",
-    monsterTitle: "万古魔渊至尊 · 五阶",
-    recommendedHp: 620,
-    recommendedAtk: 230,
-    monsterHp: 1180,
-    monsterAtk: 168,
-    monsterDef: 52,
-    entryFeeStones: 45,
-    rewardSpiritStones: 380,
-    rewardExp: 650,
-    dropIronOres: 12,
-    dropMeteorOres: 5,
-    dropSeedTier: 3,
-    slayerScorePoints: 620,
-  },
-];
+export function getSecretRealmFloorConfig(floor: number): SecretRealmFloorConfig {
+  const f = Math.max(1, Math.floor(floor));
+
+  let realmTitle = "练气期妖兽";
+  let dropSeedTier: 1 | 2 | 3 = 1;
+  if (f <= 5) {
+    realmTitle = `练气渊薮 · ${f}阶`;
+    dropSeedTier = 1;
+  } else if (f <= 15) {
+    realmTitle = `筑基幽境 · ${f - 5}阶`;
+    dropSeedTier = 2;
+  } else if (f <= 30) {
+    realmTitle = `金丹秘窟 · ${f - 15}阶`;
+    dropSeedTier = 2;
+  } else if (f <= 50) {
+    realmTitle = `元婴魔渊 · ${f - 30}阶`;
+    dropSeedTier = 3;
+  } else if (f <= 75) {
+    realmTitle = `化神凶域 · ${f - 50}阶`;
+    dropSeedTier = 3;
+  } else if (f <= 100) {
+    realmTitle = `炼虚古道 · ${f - 75}阶`;
+    dropSeedTier = 3;
+  } else if (f <= 150) {
+    realmTitle = `合体神魔域 · ${f - 100}阶`;
+    dropSeedTier = 3;
+  } else if (f <= 200) {
+    realmTitle = `大乘至尊天 · ${f - 150}阶`;
+    dropSeedTier = 3;
+  } else if (f <= 300) {
+    realmTitle = `渡劫绝巅域 · ${f - 200}阶`;
+    dropSeedTier = 3;
+  } else {
+    realmTitle = `九天真仙域 · ${f - 300}阶`;
+    dropSeedTier = 3;
+  }
+
+  const monsterPrefixes = [
+    "黑风", "赤焰", "玄冰", "九幽", "太虚", "幽冥", "万劫", "紫霄", "混元", "寂灭",
+    "洪荒", "修罗", "天煞", "烛照", "焚天", "雷煞", "万魔", "碧落", "黄泉", "九天",
+  ];
+  const monsterSuffixes = [
+    "幽冥狼", "毒火蝎", "双头蛟", "血煞蝠", "金睛兽", "玄甲龟", "吞天鹏", "火凤鸟",
+    "雷麒麟", "赤炎龙", "混沌魔", "修罗将", "阴阳尸", "灭世蟒", "烛九阴", "九尾妖狐",
+    "通天猿", "夜叉王", "镇魂兽", "魔尊化身",
+  ];
+
+  const pIdx = (f * 7 + 3) % monsterPrefixes.length;
+  const sIdx = (f * 13 + 5) % monsterSuffixes.length;
+  const monsterName = `${monsterPrefixes[pIdx]}${monsterSuffixes[sIdx]}`;
+
+  const monsterHp = Math.round(130 + Math.pow(f, 1.55) * 50 + f * 25);
+  const monsterAtk = Math.round(28 + Math.pow(f, 1.34) * 9 + f * 4);
+  const monsterDef = Math.round(6 + Math.pow(f, 1.12) * 3);
+
+  const recommendedHp = Math.round(monsterHp * 0.72);
+  const recommendedAtk = Math.round(monsterAtk * 0.92);
+
+  const entryFeeStones = Math.min(12, Math.floor((f - 1) / 2) * 2);
+  const rewardSpiritStones = 0; // PVE 不掉落大量灵石，保护 Web3 NEAR 充值经济与周榜国库分润生态
+  const rewardExp = Math.round(80 + Math.pow(f, 1.25) * 50);
+  const dropIronOres = Math.min(30, Math.floor(2 + f * 0.6));
+  const dropMeteorOres = Math.min(15, Math.floor(f / 2));
+  const slayerScorePoints = Math.round(50 + f * 50 + Math.pow(f, 1.3) * 15);
+
+  return {
+    floor: f,
+    monsterName,
+    monsterTitle: realmTitle,
+    recommendedHp,
+    recommendedAtk,
+    monsterHp,
+    monsterAtk,
+    monsterDef,
+    entryFeeStones,
+    rewardSpiritStones,
+    rewardExp,
+    dropIronOres,
+    dropMeteorOres,
+    dropSeedTier,
+    slayerScorePoints,
+  };
+}
+
+export const SECRET_REALM_FLOORS: SecretRealmFloorConfig[] = Array.from(
+  { length: 30 },
+  (_, i) => getSecretRealmFloorConfig(i + 1)
+);
 
 export const RIVAL_DAOISTS = [
   {
@@ -444,6 +447,24 @@ function createInitialState(
     },
     inbox: initialMails,
     unreadMailCount: initialMails.filter((m) => !m.isRead).length,
+    financialStats: {
+      totalNearSpent: 0.2,
+      totalNearEarned: 0,
+      totalStonesRecharged: 0,
+      totalStonesDividends: 0,
+      records: [
+        {
+          id: `fin-init-genesis`,
+          type: "MINT_NFT",
+          titleZh: "太虚仙宗 · 结契铸造本命修真道身 NFT",
+          titleEn: "Mint Cultivator Soul NFT",
+          nearDelta: -0.2,
+          stonesDelta: 88,
+          timestamp: new Date().toISOString(),
+          txHash: "ed25519-mint-genesis",
+        },
+      ],
+    },
     transferHistory: [],
   };
 
@@ -524,7 +545,28 @@ export function getStore(accountId?: string): InternalStore {
   if (normalizedId === "qingyun-master.testnet") {
     globalForXianxia.__daoAscensionStore = globalForXianxia.__daoAscensionAccountMap[normalizedId];
   }
-  return globalForXianxia.__daoAscensionAccountMap[normalizedId];
+  const currentStore = globalForXianxia.__daoAscensionAccountMap[normalizedId];
+  if (currentStore?.cultivator && !currentStore.cultivator.financialStats) {
+    currentStore.cultivator.financialStats = {
+      totalNearSpent: 0.2,
+      totalNearEarned: 0,
+      totalStonesRecharged: 0,
+      totalStonesDividends: 0,
+      records: [
+        {
+          id: `fin-init-genesis`,
+          type: "MINT_NFT",
+          titleZh: "太虚仙宗 · 结契铸造本命修真道身 NFT",
+          titleEn: "Mint Cultivator Soul NFT",
+          nearDelta: -0.2,
+          stonesDelta: 88,
+          timestamp: new Date().toISOString(),
+          txHash: "ed25519-mint-genesis",
+        },
+      ],
+    };
+  }
+  return currentStore;
 }
 
 export function resetXianxiaWorldState(accountId?: string): InternalStore {
@@ -651,6 +693,62 @@ export function recalculateCultivatorDerivedStats(
   cultivator.scores.blacksmithScore = cultivator.maxHp + cultivator.atk * 4;
 }
 
+export function recordFinancialEntry(
+  cultivator: CultivatorNftAccount,
+  entry: Omit<CultivatorFinancialRecord, "id" | "timestamp">
+): CultivatorFinancialRecord {
+  if (!cultivator.financialStats) {
+    cultivator.financialStats = {
+      totalNearSpent: 0.2,
+      totalNearEarned: 0,
+      totalStonesRecharged: 0,
+      totalStonesDividends: 0,
+      records: [
+        {
+          id: "fin-init-genesis",
+          type: "MINT_NFT",
+          titleZh: "太虚仙宗 · 结契铸造本命修真道身 NFT",
+          titleEn: "Mint Cultivator Soul NFT",
+          nearDelta: -0.2,
+          stonesDelta: 88,
+          timestamp: new Date().toISOString(),
+          txHash: "ed25519-mint-genesis",
+        },
+      ],
+    };
+  }
+
+  const stats = cultivator.financialStats;
+  const record: CultivatorFinancialRecord = {
+    id: `fin-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`,
+    timestamp: new Date().toISOString(),
+    ...entry,
+  };
+
+  if (entry.nearDelta < 0) {
+    stats.totalNearSpent = Number(
+      (stats.totalNearSpent + Math.abs(entry.nearDelta)).toFixed(3)
+    );
+  } else if (entry.nearDelta > 0) {
+    stats.totalNearEarned = Number(
+      (stats.totalNearEarned + entry.nearDelta).toFixed(3)
+    );
+  }
+
+  if (entry.type === "RECHARGE") {
+    stats.totalStonesRecharged += Math.max(0, entry.stonesDelta);
+  } else if (entry.type === "WEEKLY_DIVIDEND") {
+    stats.totalStonesDividends += Math.max(0, entry.stonesDelta);
+  }
+
+  stats.records.unshift(record);
+  if (stats.records.length > 50) {
+    stats.records = stats.records.slice(0, 50);
+  }
+
+  return record;
+}
+
 export function rollSpiritRootWithNear(params?: { accountId?: string }): {
   spiritRoot: SpiritRootDefinition;
   receipt: SignedSessionActionReceipt;
@@ -695,6 +793,15 @@ export function rollSpiritRootWithNear(params?: { accountId?: string }): {
       atk_bonus_pct: `${picked.atkBonusPct}%`,
     }
   );
+
+  recordFinancialEntry(cultivator, {
+    type: "WASH_ROOT",
+    titleZh: `天道玄鉴 · 逆天重洗五行灵根为【${picked.tier} · ${picked.name}】`,
+    titleEn: `Wash Spirit Root to [${picked.tier} · ${picked.name}]`,
+    nearDelta: -0.1,
+    stonesDelta: 0,
+    txHash: receipt.txHash,
+  });
 
   return { spiritRoot: picked, receipt };
 }
@@ -748,6 +855,26 @@ export function reshapeDaoBody(params: {
     }
   );
 
+  if (method === "NEAR") {
+    recordFinancialEntry(cultivator, {
+      type: "RESHAPE",
+      titleZh: `造化阴阳 · 支付 0.5 NEAR 逆天重塑道身体魄法相【${cleanName}】`,
+      titleEn: `Reshape Dao Body with 0.5 NEAR [${cleanName}]`,
+      nearDelta: -0.5,
+      stonesDelta: 0,
+      txHash: receipt.txHash,
+    });
+  } else {
+    recordFinancialEntry(cultivator, {
+      type: "RESHAPE",
+      titleZh: `造化阴阳 · 消耗 200 灵石重塑道身体魄法相【${cleanName}】`,
+      titleEn: `Reshape Dao Body with 200 Stones [${cleanName}]`,
+      nearDelta: 0,
+      stonesDelta: -200,
+      txHash: receipt.txHash,
+    });
+  }
+
   return { success: true, cultivator, receipt };
 }
 
@@ -795,6 +922,15 @@ export function rechargeSpiritStonesWithNear(params: {
       new_balance: store.cultivator.spiritStones,
     }
   );
+
+  recordFinancialEntry(store.cultivator, {
+    type: "RECHARGE",
+    titleZh: `通宝仙庄 · 充值 ${amount} NEAR 购入 ${gained} 灵石`,
+    titleEn: `Recharge ${amount} NEAR for ${gained} Stones`,
+    nearDelta: -amount,
+    stonesDelta: gained,
+    txHash: receipt.txHash,
+  });
 
   return {
     spiritStonesGained: gained,
@@ -1437,7 +1573,7 @@ export function challengeSecretRealmFloor(
 } {
   const store = getStore(accountId);
   const { cultivator, treasury } = store;
-  const floorCfg = SECRET_REALM_FLOORS.find((f) => f.floor === floorNumber);
+  const floorCfg = getSecretRealmFloorConfig(floorNumber);
   if (!floorCfg) {
     throw new Error(`秘境第 ${floorNumber} 层尚未开启`);
   }
@@ -1535,7 +1671,6 @@ export function challengeSecretRealmFloor(
   let rewards: CombatBattleReport["rewards"] | undefined;
 
   if (victory) {
-    cultivator.spiritStones += floorCfg.rewardSpiritStones;
     cultivator.exp += floorCfg.rewardExp;
     cultivator.inventory.ironOres += floorCfg.dropIronOres;
     cultivator.inventory.meteorOres += floorCfg.dropMeteorOres;
@@ -1550,7 +1685,7 @@ export function challengeSecretRealmFloor(
     const realmBreakthrough = checkRealmProgression(cultivator);
 
     rewards = {
-      spiritStones: floorCfg.rewardSpiritStones,
+      spiritStones: 0, // PVE 试炼不掉落大量灵石，保护 Web3 代币经济
       exp: floorCfg.rewardExp,
       ironOres: floorCfg.dropIronOres,
       meteorOres: floorCfg.dropMeteorOres,
@@ -1570,8 +1705,8 @@ export function challengeSecretRealmFloor(
     store,
     "challenge_secret_realm",
     victory
-      ? `镇魔塔第 ${floorCfg.floor} 层讨伐【${floorCfg.monsterName}】大获全胜！掉落玄铁 +${floorCfg.dropIronOres}、陨铁 +${floorCfg.dropMeteorOres}、${floorCfg.dropSeedTier}阶灵种×1、灵石 +${floorCfg.rewardSpiritStones}，诛魔榜积分 +${floorCfg.slayerScorePoints}`
-      : `秘境第 ${floorCfg.floor} 层激战【${floorCfg.monsterName}】惜败，请前往灵田炼丹提升气血或去天工阁锻剑后再战！`,
+      ? `镇魔塔第 ${floorCfg.floor} 重讨伐【${floorCfg.monsterName}】大获全胜！掉落玄铁 +${floorCfg.dropIronOres}${floorCfg.dropMeteorOres > 0 ? `、陨铁 +${floorCfg.dropMeteorOres}` : ""}、${floorCfg.dropSeedTier}阶仙种×1，诛魔天榜积分 +${floorCfg.slayerScorePoints}`
+      : `秘境第 ${floorCfg.floor} 重激战【${floorCfg.monsterName}】惜败，请前往灵田炼丹提升气血或去天工阁锻剑后再战！`,
     {
       battle_id: battleId,
       floor: floorCfg.floor,
@@ -1599,7 +1734,7 @@ export function challengeSecretRealmFloor(
   store.elderCounsel = {
     ...store.elderCounsel,
     message: victory
-      ? `壮哉！道友仗剑斩杀第 ${floorCfg.floor} 层【${floorCfg.monsterName}】${pillsConsumed > 0 ? `（期间灵丹护体回血 ${pillsConsumed} 次）` : ""}，诛魔天榜名次再进一竿！${cultivator.highestFloorCleared >= 10 ? "九幽魔尊暗纹结契解锁！" : cultivator.highestFloorCleared >= 5 ? "青丘狐妖少女灵魄破封解锁！" : ""}`
+      ? `壮哉！道友仗剑斩杀第 ${floorCfg.floor} 重【${floorCfg.monsterName}】${pillsConsumed > 0 ? `（期间灵丹护体回血 ${pillsConsumed} 次）` : ""}，诛魔天榜名次再进一竿！${cultivator.highestFloorCleared >= 10 ? "九幽魔尊暗纹结契解锁！" : cultivator.highestFloorCleared >= 5 ? "青丘狐妖少女灵魄破封解锁！" : ""}`
       : `道友莫馁！【${floorCfg.monsterName}】凶悍，不妨先回洞府灵田服丹增加气血上限，或锻造更高阶仙剑后再来斩妖！`,
     timestamp: new Date().toISOString(),
   };
@@ -1632,7 +1767,7 @@ export function generatePvpOpponents(
       equippedArtifactName: "青竹蜂云剑",
       artifactRarity: "凡品灵兵",
       duelScore: Math.max(800, pvpScore - 45),
-      rewardSpiritStones: 15,
+      rewardSpiritStones: 0,
       rewardDuelPoints: 18,
       winChanceEstimatePct: 78,
     },
@@ -1652,7 +1787,7 @@ export function generatePvpOpponents(
       equippedArtifactName: "紫金混元印",
       artifactRarity: "极品道器",
       duelScore: pvpScore + 20,
-      rewardSpiritStones: 28,
+      rewardSpiritStones: 0,
       rewardDuelPoints: 28,
       winChanceEstimatePct: 52,
     },
@@ -1672,7 +1807,7 @@ export function generatePvpOpponents(
       equippedArtifactName: "太虚焚天仙剑",
       artifactRarity: "传世仙器",
       duelScore: pvpScore + 85,
-      rewardSpiritStones: 50,
+      rewardSpiritStones: 0,
       rewardDuelPoints: 42,
       winChanceEstimatePct: 32,
     },
@@ -1794,11 +1929,10 @@ export function challengePvpDuel(params: {
 
   if (isVictory) {
     duelDelta = opponent.rewardDuelPoints;
-    rewardStones = opponent.rewardSpiritStones;
+    rewardStones = 0; // PVP 演武不直接发放大量灵石，胜负积分累积至周天榜参与国库分润
     rewardOres = opponent.difficulty === "HARD" ? 2 : 1;
     cultivator.scores.duelScore = (cultivator.scores.duelScore || 1000) + duelDelta;
     cultivator.scores.duelWins = (cultivator.scores.duelWins || 0) + 1;
-    cultivator.spiritStones += rewardStones;
     cultivator.inventory.ironOres += rewardOres;
   } else {
     duelDelta = opponent.difficulty === "EASY" ? -12 : -8;
@@ -2177,6 +2311,26 @@ export function claimCelestialMailAttachment(
     }
   );
 
+  if (rewards.nearAmount) {
+    recordFinancialEntry(cultivator, {
+      type: "WEEKLY_DIVIDEND",
+      titleZh: `查收天阙传谕【${mail.title}】NEAR分润`,
+      titleEn: `Claim Decree NEAR [${mail.title}]`,
+      nearDelta: rewards.nearAmount,
+      stonesDelta: rewards.spiritStones || 0,
+      txHash: receipt.txHash,
+    });
+  } else if (rewards.spiritStones) {
+    recordFinancialEntry(cultivator, {
+      type: "WEEKLY_DIVIDEND",
+      titleZh: `查收天阙传谕【${mail.title}】灵石周俸`,
+      titleEn: `Claim Decree Stones [${mail.title}]`,
+      nearDelta: 0,
+      stonesDelta: rewards.spiritStones,
+      txHash: receipt.txHash,
+    });
+  }
+
   return {
     mail,
     claimedRewards: rewards,
@@ -2236,6 +2390,17 @@ export function claimAllCelestialMails(accountId?: string): {
       claimed_at: new Date().toISOString(),
     }
   );
+
+  if (totalStones > 0) {
+    recordFinancialEntry(cultivator, {
+      type: "WEEKLY_DIVIDEND",
+      titleZh: `一键查收 ${unclaimed.length} 封传谕全部周俸`,
+      titleEn: `Claim All ${unclaimed.length} Decrees`,
+      nearDelta: 0,
+      stonesDelta: totalStones,
+      txHash: receipt.txHash,
+    });
+  }
 
   return {
     claimedCount: unclaimed.length,
@@ -2426,7 +2591,15 @@ export async function getXianxiaWorldSnapshot(
     catalogs: {
       herbSeeds: HERB_SEEDS_CATALOG,
       forgeBlueprints: FORGE_BLUEPRINTS_CATALOG,
-      realmFloors: SECRET_REALM_FLOORS,
+      realmFloors: Array.from(
+        {
+          length: Math.max(
+            20,
+            (store.cultivator.highestFloorCleared || 0) + 10
+          ),
+        },
+        (_, i) => getSecretRealmFloorConfig(i + 1)
+      ),
     },
   };
 }

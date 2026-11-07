@@ -170,11 +170,31 @@ export interface CombatBattleReport {
 
 export interface CelestialMailAttachment {
   spiritStones?: number;
+  nearAmount?: number;
   ironOres?: number;
   meteorOres?: number;
   healingPills?: number;
   seeds?: { tier: 1 | 2 | 3; count: number };
   crossChainIntentQuote?: CrossChainQuoteResult;
+}
+
+export interface CultivatorFinancialRecord {
+  id: string;
+  type: "RECHARGE" | "WASH_ROOT" | "RESHAPE" | "WEEKLY_DIVIDEND" | "MAIL_CLAIM" | "MINT_NFT";
+  titleZh: string;
+  titleEn: string;
+  nearDelta: number; // 负数为投入消耗，正数为赚取/分润 (单位 NEAR)
+  stonesDelta: number; // 灵石增减
+  timestamp: string;
+  txHash?: string;
+}
+
+export interface CultivatorFinancialStats {
+  totalNearSpent: number; // 累计消耗/投入 NEAR
+  totalNearEarned: number; // 累计赚取/分润 NEAR
+  totalStonesRecharged: number; // 累计充值灵石
+  totalStonesDividends: number; // 累计周榜分润灵石
+  records: CultivatorFinancialRecord[];
 }
 
 export interface CelestialMailItem {
@@ -315,6 +335,7 @@ export interface CultivatorNftAccount {
   };
   inbox: CelestialMailItem[];
   unreadMailCount: number;
+  financialStats?: CultivatorFinancialStats;
   transferHistory: Array<{
     fromOwner: string;
     toOwner: string;
