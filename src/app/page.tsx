@@ -254,8 +254,8 @@ export default function JadeXianxiaH5Game() {
 
   const [selectedSeedTier, setSelectedSeedTier] = useState<1 | 2 | 3>(1);
   const [boardViewTab, setBoardViewTab] = useState<
-    "ALL" | "SLAYER" | "ALCHEMY" | "BLACKSMITH" | "DUEL"
-  >("ALL");
+    "SLAYER" | "ALCHEMY" | "BLACKSMITH" | "DUEL"
+  >("SLAYER");
   const [loadingAction, setLoadingAction] = useState<boolean>(false);
   const [loadingPlotIds, setLoadingPlotIds] = useState<number[]>([]);
   const [activeLoading, setActiveLoading] = useState<LoadingTarget | null>(null);
@@ -1976,29 +1976,32 @@ export default function JadeXianxiaH5Game() {
         </div>
       )}
 
-      {/* 0.5 醒目道具扣减与属性获得游戏飘字横幅 (满足需求：扣道具也要有明显表现) */}
+      {/* 0.5 醒目道具扣减与属性获得游戏飘字横幅 (100% 纯实色不透明国风玉牌，字迹清晰锐利) */}
       {deltaBannerItems.length > 0 && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-wrap items-center justify-center gap-2.5 px-4 max-w-2xl">
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-wrap items-center justify-center gap-2.5 px-4 max-w-2xl">
           {deltaBannerItems.map((item) => (
             <div
               key={item.id}
-              className={`px-4 py-2 border-2 shadow-2xl flex items-center gap-2.5 font-serif animate-bounce backdrop-blur-md ${
+              style={{
+                backgroundColor: item.isDeduction ? "#2D0808" : "#0D2B24",
+              }}
+              className={`px-4 py-2 border-2 shadow-2xl flex items-center gap-2.5 font-serif animate-bounce ${
                 item.isDeduction
-                  ? "bg-[#450A0A]/96 border-[#F87171] text-[#FEE2E2] shadow-[0_0_28px_rgba(239,68,68,0.65)] ring-2 ring-[#EF4444]/50"
-                  : "bg-[#064E3B]/96 border-[#34D399] text-[#D1FAE5] shadow-[0_0_28px_rgba(16,185,129,0.55)] ring-2 ring-[#10B981]/40"
+                  ? "border-[#F87171] text-[#FFFFFF] ring-2 ring-[#DC2626]"
+                  : "border-[#C8AA72] text-[#FFFFFF] ring-2 ring-[#34D399]"
               }`}
             >
               <span className="text-lg leading-none">{item.icon}</span>
               <span
-                className={`text-[11px] px-1.5 py-0.5 font-bold uppercase tracking-wider ${
+                className={`text-[11px] px-2 py-0.5 font-bold tracking-wider ${
                   item.isDeduction
-                    ? "bg-[#EF4444] text-white"
+                    ? "bg-[#DC2626] text-white"
                     : "bg-[#10B981] text-[#052E24]"
                 }`}
               >
                 {item.isDeduction ? t("🔻 道具消耗", "🔻 SPENT") : t("✨ 仙缘获得", "✨ GAINED")}
               </span>
-              <span className="text-xs sm:text-sm font-bold tracking-wide">
+              <span className="text-xs sm:text-sm font-bold tracking-wide text-white">
                 {lang === "en" ? item.labelEn : item.labelZh}
               </span>
               <span
@@ -2013,49 +2016,90 @@ export default function JadeXianxiaH5Game() {
         </div>
       )}
 
-      {/* 0.6 仙资/道具不足醒目警示弹窗横幅 (满足需求：道具不足要加上提示 + 一键补充/获取引导) */}
+      {/* 0.6 仙资/道具不足国风玉轴弹窗 (纯实色宣纸白玉卷轴风格，高对比度清晰易读) */}
       {insufficientAlert && (
-        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-lg animate-fadeIn">
-          <div className="bg-[#2B0909]/96 border-2 border-[#F87171] px-4 py-3 shadow-[0_0_35px_rgba(239,68,68,0.6)] backdrop-blur-md text-xs font-serif text-[#FEE2E2]">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="px-1.5 py-0.5 bg-[#DC2626] text-white font-bold text-[10px] tracking-widest shrink-0">
-                  {t("仙资不足", "INSUFFICIENT")}
-                </span>
-                <span className="font-bold text-sm text-[#FCA5A5]">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-xs animate-fadeIn"
+          onClick={() => {
+            setInsufficientAlert(null);
+            setMissingSlotKey(null);
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md"
+          >
+            <JadeGlassPanel
+              withTopClasp
+              withTassels
+              className="p-5 sm:p-6 font-serif shadow-2xl border-2 border-[#C8AA72] !bg-[#FFFDF7]"
+            >
+              {/* 弹窗顶栏 */}
+              <div className="flex items-center justify-between pb-2.5 border-b border-[#C8AA72]/50">
+                <div className="flex items-center gap-2">
+                  <CinnabarSeal text="警" variant="rect" />
+                  <h3 className="text-base font-bold text-[#253D39] tracking-wider">
+                    {t("仙门法旨 · 仙资道具不足", "Sect Notice · Insufficient Resources")}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInsufficientAlert(null);
+                    setMissingSlotKey(null);
+                  }}
+                  className="text-[#64827D] hover:text-[#253D39] transition-colors p-1"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* 缺失项主标题横幅 (深墨绿金字牌匾) */}
+              <div
+                style={{ backgroundColor: "#162724" }}
+                className="mt-3 px-3.5 py-2.5 border border-[#C8AA72] flex items-center gap-2 text-xs sm:text-sm font-bold text-[#F2CE85]"
+              >
+                <span>
                   {lang === "en" ? insufficientAlert.titleEn : insufficientAlert.titleZh}
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setInsufficientAlert(null);
-                  setMissingSlotKey(null);
-                }}
-                className="text-[#FCA5A5] hover:text-white font-mono text-sm px-1"
+
+              {/* 缺失数量与当前余额高对比度宣纸框 */}
+              <div
+                style={{ backgroundColor: "#FFF5F5" }}
+                className="my-3 p-3.5 border-2 border-[#DC2626]/70 text-[#7F1D1D] text-xs sm:text-sm font-bold leading-relaxed shadow-inner"
               >
-                ✕
-              </button>
-            </div>
-            <p className="text-[#FECACA] text-xs mt-1.5 leading-relaxed">
-              {lang === "en" ? insufficientAlert.detailEn : insufficientAlert.detailZh}
-            </p>
-            {insufficientAlert.onQuickResolve && (
-              <div className="mt-2.5 flex items-center justify-end gap-2">
+                {lang === "en" ? insufficientAlert.detailEn : insufficientAlert.detailZh}
+              </div>
+
+              {/* 底部操作按钮组 */}
+              <div className="pt-2.5 border-t border-[#C8AA72]/35 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
-                  onClick={insufficientAlert.onQuickResolve}
-                  className="xianxia-btn-gold px-3 py-1 text-xs font-bold flex items-center gap-1.5 shadow-md"
+                  onClick={() => {
+                    setInsufficientAlert(null);
+                    setMissingSlotKey(null);
+                  }}
+                  className="px-3.5 py-1.5 text-xs font-serif font-bold text-[#476660] hover:text-[#253D39] border border-[#C8AA72]/60 bg-white"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-[#7D5E2A]" />
-                  <span>
-                    {lang === "en"
-                      ? insufficientAlert.actionLabelEn
-                      : insufficientAlert.actionLabelZh}
-                  </span>
+                  {t("暂且返回", "Dismiss")}
                 </button>
+                {insufficientAlert.onQuickResolve && (
+                  <button
+                    type="button"
+                    onClick={insufficientAlert.onQuickResolve}
+                    className="xianxia-btn-gold px-4 py-1.5 text-xs font-serif font-bold flex items-center gap-1.5 shadow-sm"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-[#7D5E2A]" />
+                    <span>
+                      {lang === "en"
+                        ? insufficientAlert.actionLabelEn
+                        : insufficientAlert.actionLabelZh}
+                    </span>
+                  </button>
+                )}
               </div>
-            )}
+            </JadeGlassPanel>
           </div>
         </div>
       )}
@@ -2840,23 +2884,31 @@ export default function JadeXianxiaH5Game() {
                           />
                         )}
 
-                        {/* 灵畦原位道具扣减/增益飞字动效层 (满足需求：扣道具也要有表现) */}
+                        {/* 灵畦原位道具扣减/增益飞字动效层 (100%纯实色高对比度，字迹清晰) */}
                         {localFx && (
                           <div
                             key={localFx.key}
                             className="absolute inset-x-1 top-6 z-30 pointer-events-none flex flex-col items-center justify-center animate-bounce"
                           >
                             <div
-                              className={`px-2 py-1 border-2 shadow-xl font-serif text-[11px] font-extrabold whitespace-nowrap ${
+                              style={{
+                                backgroundColor: localFx.isDeduction
+                                  ? "#3B0A0A"
+                                  : "#064E3B",
+                              }}
+                              className={`px-2.5 py-1 border-2 shadow-xl font-serif text-[11px] font-extrabold whitespace-nowrap ${
                                 localFx.isDeduction
-                                  ? "bg-[#450A0A]/95 border-[#F87171] text-[#FCA5A5]"
-                                  : "bg-[#064E3B]/95 border-[#34D399] text-[#A7F3D0]"
+                                  ? "border-[#F87171] text-[#FFFFFF]"
+                                  : "border-[#34D399] text-[#FFFFFF]"
                               }`}
                             >
                               {lang === "en" ? localFx.textEn : localFx.textZh}
                             </div>
                             {(localFx.subTextZh || localFx.subTextEn) && (
-                              <span className="mt-0.5 px-1.5 py-0.2 bg-[#12221F]/95 text-[#FDE68A] border border-[#C8AA72] text-[9.5px] font-serif font-bold whitespace-nowrap">
+                              <span
+                                style={{ backgroundColor: "#12221F" }}
+                                className="mt-0.5 px-1.5 py-0.2 text-[#FDE68A] border border-[#C8AA72] text-[9.5px] font-serif font-bold whitespace-nowrap"
+                              >
                                 {lang === "en" ? localFx.subTextEn : localFx.subTextZh}
                               </span>
                             )}
@@ -3668,423 +3720,252 @@ export default function JadeXianxiaH5Game() {
 
               <CloudDivider className="my-2" />
 
-              {/* 天榜视界切换栏 (四象全览 2x2 / 单榜封神金阶) */}
-              <div className="flex flex-wrap items-center justify-between gap-2 my-2 pb-1.5 border-b border-[#C8AA72]/30">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-xs font-serif font-bold text-[#253D39] flex items-center gap-1 mr-1">
-                    <Trophy className="w-3.5 h-3.5 text-[#B8860B]" />
-                    <span>{t("天榜视界", "Leaderboard View")}:</span>
-                  </span>
-                  {[
-                    {
-                      id: "ALL" as const,
-                      label: t("四象全览 (2×2并照)", "All 4 Boards (2x2)"),
-                      icon: Award,
-                    },
-                    {
-                      id: "SLAYER" as const,
-                      label: t("诛魔天榜 · 试炼", "Slayer Board"),
-                      icon: Swords,
-                    },
-                    {
-                      id: "ALCHEMY" as const,
-                      label: t("百草药圣榜 · 灵植", "Alchemy Board"),
-                      icon: Sprout,
-                    },
-                    {
-                      id: "BLACKSMITH" as const,
-                      label: t("神工天匠榜 · 战力", "Swordsmith Board"),
-                      icon: Hammer,
-                    },
-                    {
-                      id: "DUEL" as const,
-                      label: t("问鼎论剑榜 · 积分", "Duel Board"),
-                      icon: Trophy,
-                    },
-                  ].map((tab) => {
-                    const active = boardViewTab === tab.id;
-                    const Icon = tab.icon;
-                    return (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        onClick={() => setBoardViewTab(tab.id)}
-                        className={`px-2.5 py-1 text-xs font-serif transition-all flex items-center gap-1 border ${
-                          active
-                            ? "bg-[#253D39] text-[#F3E5C8] border-[#253D39] font-bold shadow-xs"
-                            : "bg-white/80 text-[#597570] hover:text-[#253D39] border-[#C8AA72]/40 hover:bg-[#FAF6EC]"
-                        }`}
-                      >
-                        <Icon className="w-3 h-3" />
-                        <span>{tab.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="text-[11px] font-serif text-[#789691] flex items-center gap-1.5">
-                  <span>
-                    {t(
-                      "前四席享国库周俸梯度分润 (50%/25%/15%/10%)",
-                      "Top 4 share 50/25/15/10% of 50% pool"
-                    )}
-                  </span>
-                </div>
-              </div>
-
-              {/* 四大周天榜展示主体 (2×2 宽广四象全览 或 单榜领奖台名册) */}
+              {/* 四大周天榜独立切换与全宽展示主体 (每次专注展示一榜，视野开阔不拥挤) */}
               {(() => {
                 const boardsData = [
                   {
                     id: "SLAYER" as const,
-                    title: t("诛魔天榜 · 三成池", "Slayer Board · 30% Pool"),
+                    title: t("诛魔天榜 · 三成奖池", "Slayer Board · 30% Pool"),
                     shortTitle: t("诛魔天榜", "Slayer Board"),
-                    sub: t("按云海试炼通关层数排序", "Sorted by Trial Tower Floors"),
+                    sub: t("按云海试炼通关层数排序（最低门槛：第 1 层）", "Sorted by Trial Tower Floors (Min: Floor 1)"),
                     poolSharePct: 30,
                     poolStones: Number((treasury.activeWeeklyRewardPoolStones * 0.3).toFixed(1)),
-                    metricName: t("试炼层数", "Trial Floor"),
+                    metricName: t("试炼通关层数", "Trial Floor"),
                     icon: Swords,
                     entries: treasury.boards.slayerBoard,
                   },
                   {
                     id: "ALCHEMY" as const,
-                    title: t("百草药圣榜 · 二成池", "Alchemy Board · 20% Pool"),
+                    title: t("百草药圣榜 · 二成奖池", "Alchemy Board · 20% Pool"),
                     shortTitle: t("百草药圣榜", "Alchemy Board"),
-                    sub: t("按种植收获灵草株数排序", "Sorted by Herbs Harvested"),
+                    sub: t("按种植收获灵草株数排序（最低门槛：收获 3 株）", "Sorted by Herbs Harvested (Min: 3 Herbs)"),
                     poolSharePct: 20,
                     poolStones: Number((treasury.activeWeeklyRewardPoolStones * 0.2).toFixed(1)),
-                    metricName: t("收获株数", "Herbs Harvested"),
+                    metricName: t("收获灵草株数", "Herbs Harvested"),
                     icon: Sprout,
                     entries: treasury.boards.alchemyBoard,
                   },
                   {
                     id: "BLACKSMITH" as const,
-                    title: t("神工天匠榜 · 二成池", "Swordsmith Board · 20% Pool"),
+                    title: t("神工天匠榜 · 二成奖池", "Swordsmith Board · 20% Pool"),
                     shortTitle: t("神工天匠榜", "Swordsmith Board"),
-                    sub: t("按道身综合战力(气血+攻击*4)排序", "Sorted by Total Combat Power"),
+                    sub: t("按道身综合战力(气血+攻击×4)排序（最低门槛：1150 战力）", "Sorted by Combat Power (Min: 1150 PWR)"),
                     poolSharePct: 20,
                     poolStones: Number((treasury.activeWeeklyRewardPoolStones * 0.2).toFixed(1)),
-                    metricName: t("综合战力", "Combat Power"),
+                    metricName: t("道身综合战力", "Combat Power"),
                     icon: Hammer,
                     entries: treasury.boards.blacksmithBoard,
                   },
                   {
                     id: "DUEL" as const,
-                    title: t("问鼎论剑榜 · 三成池", "Duel Board · 30% Pool"),
+                    title: t("问鼎论剑榜 · 三成奖池", "Duel Board · 30% Pool"),
                     shortTitle: t("问鼎论剑榜", "Duel Board"),
-                    sub: t("按论剑台演武积分排序", "Sorted by Duel ELO Points"),
+                    sub: t("按论剑台演武积分排序（最低门槛：1020 积分）", "Sorted by Duel ELO Points (Min: 1020 Pts)"),
                     poolSharePct: 30,
                     poolStones: Number((treasury.activeWeeklyRewardPoolStones * 0.3).toFixed(1)),
-                    metricName: t("论剑积分", "Duel Score"),
+                    metricName: t("论剑演武积分", "Duel Score"),
                     icon: Trophy,
                     entries: treasury.boards.duelBoard,
                   },
                 ];
 
-                if (boardViewTab === "ALL") {
-                  const seatMeta = [
-                    {
-                      badgeZh: "👑 魁首",
-                      badgeEn: "👑 #1",
-                      shareDefault: 50,
-                      rowBg:
-                        "bg-gradient-to-r from-[#FFF9E2] via-[#FEF3C7]/90 to-[#FDE68A]/50 border-l-4 border-l-[#D97706]",
-                      badgeStyle:
-                        "bg-gradient-to-r from-[#D97706] to-[#B45309] text-white shadow-2xs",
-                    },
-                    {
-                      badgeZh: "🥈 榜眼",
-                      badgeEn: "🥈 #2",
-                      shareDefault: 25,
-                      rowBg:
-                        "bg-gradient-to-r from-[#F8FAFC] to-[#E2E8F0]/70 border-l-4 border-l-[#64748B]",
-                      badgeStyle: "bg-[#475569] text-white",
-                    },
-                    {
-                      badgeZh: "🥉 探花",
-                      badgeEn: "🥉 #3",
-                      shareDefault: 15,
-                      rowBg:
-                        "bg-gradient-to-r from-[#FAF6F2] to-[#EFE6DD]/70 border-l-4 border-l-[#8D6E63]",
-                      badgeStyle: "bg-[#785549] text-white",
-                    },
-                    {
-                      badgeZh: "肆 进士",
-                      badgeEn: "#4",
-                      shareDefault: 10,
-                      rowBg: "bg-white/90 border-l-4 border-l-[#3E6B63]",
-                      badgeStyle: "bg-[#3E6B63] text-white",
-                    },
-                  ];
-
-                  return (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 my-auto">
-                      {boardsData.map((board) => {
-                        const extraEntries = board.entries.slice(4);
-                        const playerEntry = board.entries.find((e) => e.isPlayer);
-                        const Icon = board.icon;
-
-                        return (
-                          <div
-                            key={board.id}
-                            className="border border-[#C8AA72]/65 bg-white/90 font-serif shadow-xs flex flex-col justify-between overflow-hidden"
-                          >
-                            {/* 1. 榜单标准定高头部 (严格单行不折行，四榜高度 100% 一致) */}
-                            <div className="px-3 py-2 bg-[#F8F3E6] border-b border-[#C8AA72]/40">
-                              <div className="flex items-center justify-between gap-2 whitespace-nowrap">
-                                <div className="flex items-center gap-1.5 min-w-0">
-                                  <div className="w-5 h-5 bg-[#253D39] text-[#E5D2A8] flex items-center justify-center shrink-0">
-                                    <Icon className="w-3 h-3" />
-                                  </div>
-                                  <span className="text-xs sm:text-[13px] font-bold text-[#253D39] tracking-wide">
-                                    {board.shortTitle}
-                                  </span>
-                                  <span className="text-[10px] font-mono px-1.5 py-0.2 bg-[#253D39]/10 text-[#253D39] font-bold">
-                                    {board.poolSharePct}%{t("池", " Pool")}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  <span className="text-[11px] font-mono font-bold px-2 py-0.5 bg-[#FEF3C7] border border-[#F59E0B]/50 text-[#92400E]">
-                                    💎 {t("池", "Pool")} {board.poolStones}{t("石", "S")}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="flex items-center justify-between gap-2 text-[10.5px] text-[#5C7A74] mt-1 whitespace-nowrap">
-                                <span className="truncate">{board.sub}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => setBoardViewTab(board.id)}
-                                  className="text-[#8A6828] hover:text-[#593F14] font-bold underline shrink-0"
-                                >
-                                  {t(`在榜 ${board.entries.length} 人 · 金阶详情 →`, `${board.entries.length} Ranked · Podium →`)}
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* 2. 表格列头 (12列严格网格对齐) */}
-                            <div className="grid grid-cols-12 items-center h-6 px-2.5 bg-[#162925] text-[#E5D2AB] text-[10px] font-serif whitespace-nowrap">
-                              <div className="col-span-3">{t("天榜席位", "Rank")}</div>
-                              <div className="col-span-4">{t("上榜道号", "Cultivator")}</div>
-                              <div className="col-span-2 text-center">{board.metricName}</div>
-                              <div className="col-span-3 text-right">{t("预计周俸", "Reward")}</div>
-                            </div>
-
-                            {/* 3. 前四席标准定高行 (每行严格 h-10 = 40px，杜绝参差不齐与文字折行) */}
-                            <div className="divide-y divide-[#C8AA72]/25">
-                              {[0, 1, 2, 3].map((seatIdx) => {
-                                const entry = board.entries[seatIdx];
-                                const meta = seatMeta[seatIdx];
-                                return (
-                                  <div
-                                    key={seatIdx}
-                                    className={`grid grid-cols-12 items-center h-10 px-2.5 text-xs whitespace-nowrap transition ${meta.rowBg} ${
-                                      entry?.isPlayer ? "ring-1 ring-inset ring-[#D97706]" : ""
-                                    }`}
-                                  >
-                                    {/* 列1：席位徽章 */}
-                                    <div className="col-span-3 flex items-center">
-                                      <span
-                                        className={`px-1.5 py-0.5 text-[10px] font-bold rounded-xs leading-none ${
-                                          entry ? meta.badgeStyle : "bg-stone-200 text-stone-500"
-                                        }`}
-                                      >
-                                        {lang === "en" ? meta.badgeEn : meta.badgeZh}
-                                      </span>
-                                    </div>
-
-                                    {/* 列2：玩家道号 */}
-                                    <div className="col-span-4 flex items-center gap-1 min-w-0 pr-1">
-                                      {entry ? (
-                                        <>
-                                          <span
-                                            className="font-bold text-[#253D39] truncate text-xs"
-                                            title={entry.daoName}
-                                          >
-                                            {trDaoName(entry.daoName, lang)}
-                                          </span>
-                                          {entry.isPlayer && (
-                                            <span className="px-1 py-0.2 bg-[#B8860B] text-white text-[9px] font-bold leading-none shrink-0">
-                                              {t("我", "ME")}
-                                            </span>
-                                          )}
-                                        </>
-                                      ) : (
-                                        <span className="text-[11px] text-[#94A8A4] italic">
-                                          {t("虚位以待", "Empty Seat")}
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    {/* 列3：对应榜单分数 */}
-                                    <div className="col-span-2 text-center">
-                                      {entry ? (
-                                        <span className="inline-block font-mono text-[10.5px] font-bold px-1.5 py-0.5 bg-white/95 border border-[#C8AA72]/50 text-[#594119] leading-none">
-                                          {entry.metricLabel}
-                                        </span>
-                                      ) : (
-                                        <span className="font-mono text-[10px] text-[#A2B5B1]">
-                                          {t("待登榜", "—")}
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    {/* 列4：分润灵石 */}
-                                    <div className="col-span-3 text-right font-mono">
-                                      {entry ? (
-                                        <span className="font-bold text-[#14532D] text-xs tabular-nums">
-                                          +{entry.estimatedRewardStones}{t("石", "S")}
-                                          <span className="text-[9.5px] text-[#785412] ml-0.5">
-                                            ({entry.sharePct}%)
-                                          </span>
-                                        </span>
-                                      ) : (
-                                        <span className="text-[10px] text-[#8FA6A1]">
-                                          {t(`分润 ${meta.shareDefault}%`, `${meta.shareDefault}% Share`)}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-
-                            {/* 4. 第5名及后续多人平滑滚动区 / 玩家自身位次图钉 */}
-                            {extraEntries.length > 0 && (
-                              <div className="border-t border-[#C8AA72]/35 bg-[#FAF6EC]/80 px-2.5 py-1.5">
-                                <div className="max-h-[76px] overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                                  {extraEntries.map((e) => (
-                                    <div
-                                      key={e.subAccountId}
-                                      className="grid grid-cols-12 items-center h-7 px-1.5 text-[11px] bg-white/80 border border-[#C8AA72]/25 whitespace-nowrap"
-                                    >
-                                      <span className="col-span-3 font-mono font-bold text-[#786646]">
-                                        #{e.rank} {t("候补", "Waitlist")}
-                                      </span>
-                                      <span className="col-span-4 truncate font-semibold text-[#253D39]">
-                                        {trDaoName(e.daoName, lang)}
-                                      </span>
-                                      <span className="col-span-2 text-center font-mono text-[#8A6828]">
-                                        {e.metricLabel}
-                                      </span>
-                                      <span className="col-span-3 text-right font-mono text-[#688580]">
-                                        {t("蓄势冲榜", "Competing")}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {playerEntry && playerEntry.rank > 4 && (
-                              <div className="px-2.5 py-1 bg-[#162925] text-[#F2CE85] text-[11px] font-serif flex items-center justify-between whitespace-nowrap">
-                                <span>
-                                  {t("贫道当前位次", "Your Rank")}: <strong>#{playerEntry.rank}</strong>
-                                </span>
-                                <span className="font-mono">{playerEntry.metricLabel}</span>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                }
-
-                // 单榜专注全景视图 (带三甲领奖台与完整名册)
-                const targetBoard = boardsData.find((b) => b.id === boardViewTab) || boardsData[0];
+                const targetBoard =
+                  boardsData.find((b) => b.id === boardViewTab) || boardsData[0];
                 const top1 = targetBoard.entries[0];
                 const top2 = targetBoard.entries[1];
                 const top3 = targetBoard.entries[2];
-                const remaining = targetBoard.entries.slice(3);
+                const extraEntries = targetBoard.entries.slice(4);
                 const playerEntry = targetBoard.entries.find((e) => e.isPlayer);
                 const Icon = targetBoard.icon;
 
+                const seatMeta = [
+                  {
+                    badgeZh: "👑 壹 · 魁首",
+                    badgeEn: "👑 #1 Champion",
+                    shareDefault: 50,
+                    rowBg:
+                      "bg-gradient-to-r from-[#FFF9E2] via-[#FEF3C7]/90 to-[#FDE68A]/50 border-l-4 border-l-[#D97706]",
+                    badgeStyle:
+                      "bg-gradient-to-r from-[#D97706] to-[#B45309] text-white shadow-2xs",
+                  },
+                  {
+                    badgeZh: "🥈 贰 · 榜眼",
+                    badgeEn: "🥈 #2 Runner-up",
+                    shareDefault: 25,
+                    rowBg:
+                      "bg-gradient-to-r from-[#F8FAFC] to-[#E2E8F0]/70 border-l-4 border-l-[#64748B]",
+                    badgeStyle: "bg-[#475569] text-white",
+                  },
+                  {
+                    badgeZh: "🥉 叁 · 探花",
+                    badgeEn: "🥉 #3 Third",
+                    shareDefault: 15,
+                    rowBg:
+                      "bg-gradient-to-r from-[#FAF6F2] to-[#EFE6DD]/70 border-l-4 border-l-[#8D6E63]",
+                    badgeStyle: "bg-[#785549] text-white",
+                  },
+                  {
+                    badgeZh: "肆 · 进士",
+                    badgeEn: "#4 Fourth",
+                    shareDefault: 10,
+                    rowBg: "bg-white border-l-4 border-l-[#3E6B63]",
+                    badgeStyle: "bg-[#3E6B63] text-white",
+                  },
+                ];
+
                 return (
                   <div className="space-y-3 font-serif my-auto">
-                    {/* 单榜抬头横幅 */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-white/80 border border-[#C8AA72]/50 shadow-xs">
+                    {/* 1. 四大天榜全宽牌匾切换栏 (4大独立榜单按钮，点击切换对应榜单) */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {boardsData.map((b) => {
+                        const active = boardViewTab === b.id;
+                        const TabIcon = b.icon;
+                        return (
+                          <button
+                            key={b.id}
+                            type="button"
+                            onClick={() => setBoardViewTab(b.id)}
+                            className={`p-2.5 border text-left transition-all flex flex-col justify-between ${
+                              active
+                                ? "bg-[#162925] text-[#F4F9F7] border-[#C8AA72] ring-2 ring-[#C8AA72]/60 shadow-md"
+                                : "bg-white/90 text-[#253D39] border-[#C8AA72]/45 hover:bg-[#FAF6EC]"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-1">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <TabIcon
+                                  className={`w-3.5 h-3.5 shrink-0 ${
+                                    active ? "text-[#F2CE85]" : "text-[#253D39]"
+                                  }`}
+                                />
+                                <span className="text-xs sm:text-[13px] font-bold truncate">
+                                  {b.shortTitle}
+                                </span>
+                              </div>
+                              <span
+                                className={`text-[10px] font-mono px-1.5 py-0.2 font-bold shrink-0 ${
+                                  active
+                                    ? "bg-[#2C4C45] text-[#5FE3C8]"
+                                    : "bg-[#EDF5F3] text-[#2E6B5E]"
+                                }`}
+                              >
+                                {b.poolSharePct}%{t("池", "")}
+                              </span>
+                            </div>
+                            <div className="mt-1.5 flex items-center justify-between text-[11px] font-mono">
+                              <span
+                                className={
+                                  active ? "text-[#FDE68A] font-bold" : "text-[#8A6828] font-bold"
+                                }
+                              >
+                                💎 {b.poolStones} {t("灵石", "Stones")}
+                              </span>
+                              <span
+                                className={`text-[10px] font-serif ${
+                                  active ? "text-[#A9C7C0]" : "text-[#688580]"
+                                }`}
+                              >
+                                {t(`${b.entries.length}人在榜`, `${b.entries.length} ranked`)}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* 2. 当前选中天榜抬头横幅 */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 bg-[#F8F3E6] border border-[#C8AA72]/60 shadow-2xs">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xs bg-[#253D39] text-[#E5D2A8] flex items-center justify-center shrink-0 shadow-xs">
+                        <div className="w-8 h-8 bg-[#253D39] text-[#E5D2A8] flex items-center justify-center shrink-0 shadow-xs">
                           <Icon className="w-4 h-4" />
                         </div>
                         <div>
-                          <div className="text-sm font-bold text-[#253D39] flex items-center gap-2">
+                          <div className="text-sm font-bold text-[#253D39] flex flex-wrap items-center gap-2">
                             <span>{targetBoard.title}</span>
-                            <span className="text-xs font-mono px-2 py-0.5 bg-[#FAF2DE] border border-[#C8AA72]/40 text-[#8A6828]">
-                              奖池: {targetBoard.poolStones} 灵石
+                            <span className="text-xs font-mono px-2 py-0.5 bg-[#FEF3C7] border border-[#F59E0B]/50 text-[#92400E] font-bold">
+                              💎 {t("本榜周俸池:", "Board Pool:")} {targetBoard.poolStones}{" "}
+                              {t("灵石", "Stones")}
                             </span>
                           </div>
-                          <div className="text-xs text-[#607E79]">{targetBoard.sub}</div>
+                          <div className="text-xs text-[#5C7A74] mt-0.5">{targetBoard.sub}</div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-serif text-[#688580] bg-white/90 px-2.5 py-1 border border-[#C8AA72]/30">
-                          {t(`共 ${targetBoard.entries.length} 位道友竞逐此榜`, `${targetBoard.entries.length} Cultivators Competing`)}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setBoardViewTab("ALL")}
-                          className="px-2.5 py-1 text-xs bg-[#FAF6EC] hover:bg-[#F0E6D2] border border-[#C8AA72] text-[#8A6828] font-bold transition flex items-center gap-1"
-                        >
-                          <span>{t("← 返回四象全览", "← Back to 2x2 View")}</span>
-                        </button>
+                        {playerEntry ? (
+                          <span className="text-xs font-serif bg-[#162925] text-[#F2CE85] px-3 py-1 border border-[#C8AA72] font-bold">
+                            {t("贫道当前位次:", "Your Rank:")} #{playerEntry.rank}（{playerEntry.metricLabel} ·{" "}
+                            {playerEntry.estimatedRewardStones > 0
+                              ? `+${playerEntry.estimatedRewardStones}${t("灵石", "S")}`
+                              : t("候补冲榜", "Waitlist")}
+                            ）
+                          </span>
+                        ) : (
+                          <span className="text-xs font-serif text-[#688580] bg-white px-2.5 py-1 border border-[#C8AA72]/40">
+                            {t("前四席享 50% / 25% / 15% / 10% 国库周俸分润", "Top 4 share 50/25/15/10%")}
+                          </span>
+                        )}
                       </div>
                     </div>
 
-                    {/* 三甲封神领奖台 (Three-Tier Podium) */}
-                    <div className="grid grid-cols-3 gap-2 sm:gap-4 items-end pt-2 pb-1 px-2 sm:px-6 bg-gradient-to-b from-white/40 via-white/80 to-[#FAF6EC]/90 border border-[#C8AA72]/40 shadow-xs">
+                    {/* 3. 三甲封神金阶领奖台 (Three-Tier Podium) */}
+                    <div className="grid grid-cols-3 gap-2.5 sm:gap-4 items-end pt-3 pb-1.5 px-3 sm:px-6 bg-gradient-to-b from-white/70 via-white/90 to-[#FAF6EC] border border-[#C8AA72]/50 shadow-xs">
                       {/* 🥈 榜眼 (第 2 名) */}
                       <div className="flex flex-col items-center">
                         {top2 ? (
                           <div className="w-full flex flex-col items-center">
-                            <Medal className="w-6 h-6 text-[#64748B] mb-1" />
-                            <div className="text-xs sm:text-sm font-bold text-[#1E293B] truncate max-w-[100px] text-center" title={top2.daoName}>
+                            <Medal className="w-5 h-5 text-[#64748B] mb-0.5" />
+                            <div className="text-xs sm:text-sm font-bold text-[#1E293B] truncate max-w-[130px] text-center">
                               {trDaoName(top2.daoName, lang)}
                             </div>
-                            <div className="text-[11px] font-mono font-bold text-[#64748B] bg-white/90 px-1.5 py-0.5 border border-[#CBD5E1] my-1">
+                            <div className="text-[11px] font-mono font-bold text-[#475569] bg-white px-2 py-0.5 border border-[#CBD5E1] my-1">
                               {top2.metricLabel}
                             </div>
-                            <div className="text-xs font-mono font-bold text-[#1E293B] mb-1">
-                              +{top2.estimatedRewardStones}石 (25%)
+                            <div className="text-xs font-mono font-bold text-[#14532D] mb-1">
+                              +{top2.estimatedRewardStones}{t("灵石", "S")} ({top2.sharePct}%)
                             </div>
                           </div>
                         ) : (
-                          <div className="text-center text-[11px] text-[#94A3B8] italic mb-3">
-                            🥈 榜眼虚位
+                          <div className="text-center text-xs text-[#64748B] italic mb-2">
+                            {t("🥈 榜眼虚位以待 (25%分润)", "🥈 #2 Open (25%)")}
                           </div>
                         )}
-                        <div className="w-full h-20 sm:h-24 bg-gradient-to-b from-[#E2E8F0] to-[#CBD5E1] border-t-2 border-[#94A3B8] flex items-center justify-center font-bold text-lg text-[#475569] shadow-xs">
-                          贰 · 榜眼
+                        <div className="w-full h-14 sm:h-16 bg-gradient-to-b from-[#E2E8F0] to-[#CBD5E1] border-t-2 border-[#94A3B8] flex items-center justify-center font-bold text-sm sm:text-base text-[#334155] shadow-xs">
+                          {t("贰 · 榜眼", "II · Runner-up")}
                         </div>
                       </div>
 
-                      {/* 👑 魁首 (第 1 名 - 最高领奖台) */}
+                      {/* 👑 魁首 (第 1 名) */}
                       <div className="flex flex-col items-center">
                         {top1 ? (
                           <div className="w-full flex flex-col items-center relative">
-                            <Crown className="w-8 h-8 text-[#D4AF37] fill-[#D4AF37] mb-1 animate-bounce" />
-                            <div className="text-sm sm:text-base font-bold text-[#422D0B] truncate max-w-[140px] text-center" title={top1.daoName}>
-                              {trDaoName(top1.daoName, lang)}
-                            </div>
-                            {top1.isPlayer && (
-                              <span className="text-[10px] bg-[#B8860B] text-white px-1.5 py-0.2 rounded-xs font-bold my-0.5">
-                                {t("道友本人", "You")}
+                            <Crown className="w-7 h-7 text-[#D4AF37] fill-[#D4AF37] mb-0.5 animate-bounce" />
+                            <div className="flex items-center gap-1">
+                              <span className="text-sm sm:text-base font-bold text-[#422D0B] truncate max-w-[140px]">
+                                {trDaoName(top1.daoName, lang)}
                               </span>
-                            )}
-                            <div className="text-xs font-mono font-bold text-[#8A5A12] bg-[#FEF3C7] px-2 py-0.5 border border-[#F59E0B]/50 my-1 shadow-2xs">
+                              {top1.isPlayer && (
+                                <span className="text-[10px] bg-[#B8860B] text-white px-1.5 py-0.2 font-bold">
+                                  {t("本人", "YOU")}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs font-mono font-bold text-[#8A5A12] bg-[#FEF3C7] px-2.5 py-0.5 border border-[#F59E0B]/60 my-1 shadow-2xs">
                               {top1.metricLabel}
                             </div>
-                            <div className="text-xs sm:text-sm font-mono font-bold text-[#B45309] mb-1">
-                              +{top1.estimatedRewardStones}石 ({top1.sharePct}%)
+                            <div className="text-xs sm:text-sm font-mono font-bold text-[#14532D] mb-1">
+                              +{top1.estimatedRewardStones}{t("灵石", "S")} ({top1.sharePct}%)
                             </div>
                           </div>
                         ) : (
-                          <div className="text-center text-xs text-[#86ABA3] italic mb-3">
-                            👑 榜首虚位
+                          <div className="text-center text-xs text-[#8A6828] italic mb-2">
+                            {t("👑 魁首虚位以待 (50%分润)", "👑 #1 Open (50%)")}
                           </div>
                         )}
-                        <div className="w-full h-28 sm:h-32 bg-gradient-to-b from-[#FEF3C7] to-[#FDE68A] border-t-3 border-[#D4AF37] flex flex-col items-center justify-center font-bold text-xl text-[#78350F] shadow-md ring-1 ring-[#D4AF37]/50">
-                          <span>壹 · 魁首</span>
-                          <span className="text-[10px] font-normal text-[#92400E] mt-0.5">冠绝太虚</span>
+                        <div className="w-full h-20 sm:h-22 bg-gradient-to-b from-[#FEF3C7] to-[#FDE68A] border-t-2 border-[#D4AF37] flex flex-col items-center justify-center font-bold text-base sm:text-lg text-[#78350F] shadow-md ring-1 ring-[#D4AF37]/50">
+                          <span>{t("壹 · 魁首", "I · Champion")}</span>
+                          <span className="text-[10px] font-normal text-[#92400E]">
+                            {t("独揽五成榜池", "50% Board Pool")}
+                          </span>
                         </div>
                       </div>
 
@@ -4092,75 +3973,128 @@ export default function JadeXianxiaH5Game() {
                       <div className="flex flex-col items-center">
                         {top3 ? (
                           <div className="w-full flex flex-col items-center">
-                            <Medal className="w-5 h-5 text-[#8D6E63] mb-1" />
-                            <div className="text-xs sm:text-sm font-bold text-[#3E2723] truncate max-w-[100px] text-center" title={top3.daoName}>
+                            <Medal className="w-5 h-5 text-[#8D6E63] mb-0.5" />
+                            <div className="text-xs sm:text-sm font-bold text-[#3E2723] truncate max-w-[130px] text-center">
                               {trDaoName(top3.daoName, lang)}
                             </div>
-                            <div className="text-[11px] font-mono font-bold text-[#8D6E63] bg-white/90 px-1.5 py-0.5 border border-[#D7CCC8] my-1">
+                            <div className="text-[11px] font-mono font-bold text-[#5D4037] bg-white px-2 py-0.5 border border-[#D7CCC8] my-1">
                               {top3.metricLabel}
                             </div>
-                            <div className="text-xs font-mono font-bold text-[#3E2723] mb-1">
-                              +{top3.estimatedRewardStones}石 (15%)
+                            <div className="text-xs font-mono font-bold text-[#14532D] mb-1">
+                              +{top3.estimatedRewardStones}{t("灵石", "S")} ({top3.sharePct}%)
                             </div>
                           </div>
                         ) : (
-                          <div className="text-center text-[11px] text-[#A1887F] italic mb-3">
-                            🥉 探花虚位
+                          <div className="text-center text-xs text-[#8D6E63] italic mb-2">
+                            {t("🥉 探花虚位以待 (15%分润)", "🥉 #3 Open (15%)")}
                           </div>
                         )}
-                        <div className="w-full h-16 sm:h-18 bg-gradient-to-b from-[#EFEBE9] to-[#D7CCC8] border-t-2 border-[#8D6E63] flex items-center justify-center font-bold text-base text-[#4E342E] shadow-xs">
-                          叁 · 探花
+                        <div className="w-full h-12 sm:h-14 bg-gradient-to-b from-[#EFEBE9] to-[#D7CCC8] border-t-2 border-[#8D6E63] flex items-center justify-center font-bold text-sm sm:text-base text-[#4E342E] shadow-xs">
+                          {t("叁 · 探花", "III · Third")}
                         </div>
                       </div>
                     </div>
 
-                    {/* 完整名册表单 (第 4 名及后续所有道友) */}
-                    <div className="border border-[#C8AA72]/40 bg-white/90 p-3 shadow-xs">
-                      <div className="flex items-center justify-between text-xs text-[#253D39] font-bold border-b border-[#C8AA72]/30 pb-2 mb-2">
-                        <span className="w-16">{t("名次", "Rank")}</span>
-                        <span className="flex-1">{t("道友道号", "Cultivator")}</span>
-                        <span className="w-32 text-center">{targetBoard.metricName}</span>
-                        <span className="w-28 text-right">{t("预估周俸", "Est. Dividends")}</span>
+                    {/* 4. 全宽 12 列天榜封神名册表 (单榜独占 100% 宽度，列距宽敞绝不重叠) */}
+                    <div className="border border-[#C8AA72]/65 bg-white shadow-xs overflow-hidden">
+                      <div className="grid grid-cols-12 items-center h-8 px-4 bg-[#162925] text-[#E5D2AB] text-xs font-serif font-bold whitespace-nowrap">
+                        <div className="col-span-3">{t("天榜席位", "Heaven Seat")}</div>
+                        <div className="col-span-4">{t("上榜道友道号", "Cultivator Name")}</div>
+                        <div className="col-span-2 text-center">{targetBoard.metricName}</div>
+                        <div className="col-span-3 text-right">{t("预计周俸分润", "Weekly Dividend")}</div>
                       </div>
-                      {targetBoard.entries.length === 0 ? (
-                        <div className="py-6 text-center text-xs text-[#86ABA3] italic">
-                          {t("本榜暂无道友入籍，速速登临大放异彩", "No cultivators yet.")}
-                        </div>
-                      ) : (
-                        <div className="max-h-[160px] overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
-                          {targetBoard.entries.map((e) => (
+
+                      <div className="divide-y divide-[#C8AA72]/30">
+                        {[0, 1, 2, 3].map((seatIdx) => {
+                          const entry = targetBoard.entries[seatIdx];
+                          const meta = seatMeta[seatIdx];
+                          return (
                             <div
-                              key={e.subAccountId}
-                              className={`px-3 py-1.5 text-xs flex items-center justify-between border ${
-                                e.isPlayer
-                                  ? "bg-[#FAF6EC] border-[#C8AA72] text-[#594119] font-bold shadow-2xs"
-                                  : "bg-white border-[#C8AA72]/20 text-[#476660]"
+                              key={seatIdx}
+                              className={`grid grid-cols-12 items-center h-11 px-4 text-xs sm:text-sm whitespace-nowrap ${meta.rowBg} ${
+                                entry?.isPlayer ? "ring-1 ring-inset ring-[#D97706]" : ""
                               }`}
                             >
-                              <span className="w-16 font-mono font-bold text-[#8A6828]">
-                                #{e.rank}
-                                {e.rank === 1 && " 👑"}
-                                {e.rank === 2 && " 🥈"}
-                                {e.rank === 3 && " 🥉"}
-                              </span>
-                              <div className="flex-1 flex items-center gap-1.5 truncate">
-                                <span className="truncate">{trDaoName(e.daoName, lang)}</span>
-                                {e.isPlayer && (
-                                  <span className="text-[10px] bg-[#C8AA72] text-white px-1.5 py-0.2 rounded-xs font-bold shrink-0">
-                                    {t("道友本人", "You")}
+                              <div className="col-span-3 flex items-center">
+                                <span
+                                  className={`px-2 py-0.5 text-xs font-bold leading-none ${
+                                    entry ? meta.badgeStyle : "bg-stone-200 text-stone-600"
+                                  }`}
+                                >
+                                  {lang === "en" ? meta.badgeEn : meta.badgeZh}
+                                </span>
+                              </div>
+
+                              <div className="col-span-4 flex items-center gap-2 min-w-0 pr-2">
+                                {entry ? (
+                                  <>
+                                    <span className="font-bold text-[#253D39] truncate">
+                                      {trDaoName(entry.daoName, lang)}
+                                    </span>
+                                    {entry.isPlayer && (
+                                      <span className="px-1.5 py-0.5 bg-[#B8860B] text-white text-[10px] font-bold leading-none shrink-0">
+                                        {t("道友本人", "YOU")}
+                                      </span>
+                                    )}
+                                  </>
+                                ) : (
+                                  <span className="text-xs text-[#78908C] italic">
+                                    {t("虚位以待 · 达标即刻登榜", "Open Seat · Qualify to Claim")}
                                   </span>
                                 )}
                               </div>
-                              <span className="w-32 text-center font-mono font-bold text-[#8A6828] bg-[#FAF2DE]/80 px-2 py-0.5 border border-[#C8AA72]/30">
-                                {e.metricLabel}
-                              </span>
-                              <span className="w-28 text-right font-mono font-bold text-[#2E6B5E]">
-                                {e.estimatedRewardStones > 0 ? `+${e.estimatedRewardStones} 灵石` : t("候榜", "-")}
-                              </span>
+
+                              <div className="col-span-2 text-center">
+                                {entry ? (
+                                  <span className="inline-block font-mono text-xs font-bold px-2.5 py-0.5 bg-white border border-[#C8AA72]/60 text-[#594119]">
+                                    {entry.metricLabel}
+                                  </span>
+                                ) : (
+                                  <span className="font-mono text-xs text-[#94A8A4]">
+                                    {t("待登榜", "—")}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="col-span-3 text-right font-mono">
+                                {entry ? (
+                                  <span className="font-bold text-[#14532D] text-xs sm:text-sm tabular-nums">
+                                    +{entry.estimatedRewardStones} {t("灵石", "Stones")}{" "}
+                                    <span className="text-xs text-[#92400E]">
+                                      ({entry.sharePct}%)
+                                    </span>
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-[#64827D]">
+                                    {t(`享池内 ${meta.shareDefault}% 分润`, `${meta.shareDefault}% Pool Share`)}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          ))}
-                        </div>
-                      )}
+                          );
+                        })}
+
+                        {/* 第 5 名及后续候补道友 */}
+                        {extraEntries.map((e) => (
+                          <div
+                            key={e.subAccountId}
+                            className="grid grid-cols-12 items-center h-9 px-4 text-xs bg-[#FAF6EC]/70 whitespace-nowrap"
+                          >
+                            <div className="col-span-3 font-mono font-bold text-[#786646]">
+                              #{e.rank} {t("候补席", "Waitlist")}
+                            </div>
+                            <div className="col-span-4 truncate font-semibold text-[#253D39]">
+                              {trDaoName(e.daoName, lang)}
+                            </div>
+                            <div className="col-span-2 text-center font-mono font-bold text-[#8A6828]">
+                              {e.metricLabel}
+                            </div>
+                            <div className="col-span-3 text-right font-mono text-[#688580]">
+                              {t("蓄势冲榜中", "Competing")}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 );
