@@ -33,7 +33,11 @@ import {
   FlameKindling,
   Crown,
   Medal,
+  Volume2,
+  VolumeX,
+  Music,
 } from "lucide-react";
+import { xianxiaAudio } from "@/lib/xianxia/sound";
 import {
   AvatarClass,
   CultivatorSprite,
@@ -281,6 +285,55 @@ export default function JadeXianxiaH5Game() {
   const [activeMailId, setActiveMailId] = useState<string | undefined>(undefined);
   const [isClaimingMail, setIsClaimingMail] = useState<boolean>(false);
 
+  // 仙乐 BGM 与游戏音效开关状态
+  const [bgmPlaying, setBgmPlaying] = useState<boolean>(false);
+  const [sfxEnabled, setSfxEnabled] = useState<boolean>(true);
+  const hasAutoStartedAudioRef = useRef<boolean>(false);
+
+  // 醒目道具扣减与属性获得飘字提示系统 (满足需求4：道具扣减提示明显)
+  interface ResourceDeltaBadge {
+    id: string;
+    icon: string;
+    labelZh: string;
+    labelEn: string;
+    delta: number;
+    isDeduction: boolean;
+  }
+  const [deltaBannerItems, setDeltaBannerItems] = useState<ResourceDeltaBadge[]>([]);
+  const [slotDeltas, setSlotDeltas] = useState<Record<string, number>>({});
+  const deltaTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 全局按钮点击清脆玉佩音效 + 首次交互自动开启仙侠古琴背景音
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      const btn = target.closest("button, a");
+      if (btn) {
+        if (!hasAutoStartedAudioRef.current) {
+          hasAutoStartedAudioRef.current = true;
+          xianxiaAudio.startBgm();
+          setBgmPlaying(true);
+        }
+        xianxiaAudio.playClick();
+      }
+    };
+    window.addEventListener("click", handleGlobalClick, true);
+    return () => window.removeEventListener("click", handleGlobalClick, true);
+  }, []);
+
+  const handleToggleBgm = () => {
+    hasAutoStartedAudioRef.current = true;
+    const next = xianxiaAudio.toggleBgm();
+    setBgmPlaying(next);
+  };
+
+  const handleToggleSfx = () => {
+    const next = !sfxEnabled;
+    setSfxEnabled(next);
+    xianxiaAudio.setSfxEnabled(next);
+  };
+
   const t = useCallback(
     (zhText: string, enText: string) => (lang === "en" ? enText : zhText),
     [lang]
@@ -437,6 +490,7 @@ export default function JadeXianxiaH5Game() {
     const isGlobalBlocking = target?.type !== "PLOT";
     if (isGlobalBlocking) setLoadingAction(true);
     if (target && isGlobalBlocking) setActiveLoading(target);
+    const prevCultivator = snapshot?.cultivator;
     try {
       const bodyWithAccount = {
         accountId: activeAccountId,
@@ -449,6 +503,148 @@ export default function JadeXianxiaH5Game() {
       });
       const data = await res.json();
       if (data.snapshot) {
+        const nextCultivator = data.snapshot.cultivator;
+        if (prevCultivator && nextCultivator) {
+          const badges: ResourceDeltaBadge[] = [];
+          const slots: Record<string, number> = {};
+
+          const dStones = Number(
+            (nextCultivator.spiritStones - prevCultivator.spiritStones).toFixed(1)
+          );
+          if (dStones !== 0) {
+            slots.stones = dStones;
+            badges.push({
+              id: `stones-${Date.now()}`,
+              icon: "💎",
+              labelZh: "灵石",
+              labelEn: "Stones",
+              delta: dStones,
+              isDeduction: dStones < 0,
+            });
+          }
+
+          const dIron =
+            nextCultivator.inventory.ironOres - prevCultivator.inventory.ironOres;
+          if (dIron !== 0) {
+            slots.iron = dIron;
+            badges.push({
+              id: `iron-${Date.now()}`,
+              icon: "⛏️",
+              labelZh: "百炼玄铁",
+              labelEn: "Iron Ore",
+              delta: dIron,
+              isDeduction: dIron < 0,
+            });
+          }
+
+          const dMeteor =
+            nextCultivator.inventory.meteorOres -
+            prevCultivator.inventory.meteorOres;
+          if (dMeteor !== 0) {
+            slots.meteor = dMeteor;
+            badges.push({
+              id: `meteor-${Date.now()}`,
+              icon: "☄️",
+              labelZh: "星辰陨铁",
+              labelEn: "Meteor Ore",
+              delta: dMeteor,
+              isDeduction: dMeteor < 0,
+            });
+          }
+
+          const dPills =
+            nextCultivator.inventory.healingPills -
+            prevCultivator.inventory.healingPills;
+          if (dPills !== 0) {
+            slots.pills = dPills;
+            badges.push({
+              id: `pills-${Date.now()}`,
+              icon: "💊",
+              labelZh: "回春灵丹",
+              labelEn: "Healing Pill",
+              delta: dPills,
+              isDeduction: dPills < 0,
+            });
+          }
+
+          const prevSeeds =
+            (prevCultivator.inventory.seedBag[1] || 0) +
+            (prevCultivator.inventory.seedBag[2] || 0) +
+            (prevCultivator.inventory.seedBag[3] || 0);
+          const nextSeeds =
+            (nextCultivator.inventory.seedBag[1] || 0) +
+            (nextCultivator.inventory.seedBag[2] || 0) +
+            (nextCultivator.inventory.seedBag[3] || 0);
+          const dSeeds = nextSeeds - prevSeeds;
+          if (dSeeds !== 0) {
+            slots.seeds = dSeeds;
+            badges.push({
+              id: `seeds-${Date.now()}`,
+              icon: "🌱",
+              labelZh: "灵草仙种",
+              labelEn: "Herb Seed",
+              delta: dSeeds,
+              isDeduction: dSeeds < 0,
+            });
+          }
+
+          const dHp = nextCultivator.maxHp - prevCultivator.maxHp;
+          if (dHp !== 0) {
+            slots.hp = dHp;
+            badges.push({
+              id: `hp-${Date.now()}`,
+              icon: "❤️",
+              labelZh: "气血上限",
+              labelEn: "Max HP",
+              delta: dHp,
+              isDeduction: dHp < 0,
+            });
+          }
+
+          const dAtk = nextCultivator.atk - prevCultivator.atk;
+          if (dAtk !== 0) {
+            slots.atk = dAtk;
+            badges.push({
+              id: `atk-${Date.now()}`,
+              icon: "🗡️",
+              labelZh: "本命攻击",
+              labelEn: "Attack",
+              delta: dAtk,
+              isDeduction: dAtk < 0,
+            });
+          }
+
+          if (badges.length > 0) {
+            setDeltaBannerItems(badges);
+            setSlotDeltas(slots);
+            if (deltaTimerRef.current) clearTimeout(deltaTimerRef.current);
+            deltaTimerRef.current = setTimeout(() => {
+              setDeltaBannerItems([]);
+              setSlotDeltas({});
+            }, 3400);
+
+            if (badges.some((b) => b.isDeduction)) {
+              xianxiaAudio.playItemDeduct();
+            }
+          }
+        }
+
+        // 触发专项主题音效
+        const act = String(payload.action || "");
+        if (act === "PLANT_HERB") xianxiaAudio.playPlant();
+        else if (act === "WATER_SPIRIT_SPRING") xianxiaAudio.playWater();
+        else if (act === "HARVEST_AND_REFINE") xianxiaAudio.playHarvest();
+        else if (act === "FORGE_ARTIFACT") xianxiaAudio.playForge();
+        else if (
+          act === "ROLL_SPIRIT_ROOT" ||
+          act === "RESHAPE_DAO_BODY" ||
+          act === "RECHARGE_SPIRIT_STONES" ||
+          act === "CLAIM_MAIL_ATTACHMENT" ||
+          act === "CLAIM_ALL_MAILS"
+        ) {
+          xianxiaAudio.playHarvest();
+        }
+
         setSnapshot(data.snapshot);
       }
       return data;
@@ -841,6 +1037,7 @@ export default function JadeXianxiaH5Game() {
         setArenaFloatingDmg(null);
 
         if (report.victory) {
+          xianxiaAudio.playVictory();
           triggerFloatingStat(
             t(
               `试炼告捷 · 获玄铁 +${report.rewards?.ironOres} · 灵石 +${report.rewards?.spiritStones}`,
@@ -864,6 +1061,7 @@ export default function JadeXianxiaH5Game() {
       setBattleTurnIdx(idx + 1);
 
       if (step.actor === "CULTIVATOR") {
+        xianxiaAudio.playSwordSlash(Boolean(step.isCrit));
         setHeroAnimState("attack");
         setMonsterAnimState("hit");
         setArenaFloatingDmg({
@@ -872,6 +1070,7 @@ export default function JadeXianxiaH5Game() {
           tone: step.isCrit ? "gold" : "rose",
         });
       } else if (step.actor === "MONSTER") {
+        xianxiaAudio.playMonsterAttack();
         setHeroAnimState("hit");
         setMonsterAnimState("attack");
         setArenaFloatingDmg({
@@ -880,6 +1079,7 @@ export default function JadeXianxiaH5Game() {
           tone: "rose",
         });
       } else if (step.actor === "PILL_RECOVERY") {
+        xianxiaAudio.playPillHeal();
         setHeroAnimState("heal");
         setMonsterAnimState("idle");
         setArenaFloatingDmg({
@@ -939,6 +1139,7 @@ export default function JadeXianxiaH5Game() {
         setPvpFloatingDmg(null);
 
         if (report.victory) {
+          xianxiaAudio.playVictory();
           triggerFloatingStat(
             t(
               `🏆 论剑大捷！积分 +${report.rewards.duelPointsDelta} · 获灵石 +${report.rewards.spiritStones}`,
@@ -946,6 +1147,7 @@ export default function JadeXianxiaH5Game() {
             )
           );
         } else {
+          xianxiaAudio.playMonsterAttack();
           triggerFloatingStat(
             t(
               `论剑惜败！积分 ${report.rewards.duelPointsDelta}，请淬炼飞剑后再战！`,
@@ -960,6 +1162,7 @@ export default function JadeXianxiaH5Game() {
       setPvpTurnIdx(idx + 1);
 
       if (step.actionText.includes("丹") || (step.hpRestored && step.hpRestored > 0)) {
+        xianxiaAudio.playPillHeal();
         setPvpHeroAnim("heal");
         setPvpOpponentAnim("idle");
         setPvpFloatingDmg({
@@ -971,6 +1174,7 @@ export default function JadeXianxiaH5Game() {
         step.attackerName.includes(snapshot?.cultivator?.daoName || "") ||
         step.defenderName.includes(opponent.daoName)
       ) {
+        xianxiaAudio.playSwordSlash(Boolean(step.isCrit));
         setPvpHeroAnim("attack");
         setPvpOpponentAnim("hit");
         setPvpFloatingDmg({
@@ -979,6 +1183,7 @@ export default function JadeXianxiaH5Game() {
           tone: step.isCrit ? "gold" : "rose",
         });
       } else {
+        xianxiaAudio.playMonsterAttack();
         setPvpHeroAnim("hit");
         setPvpOpponentAnim("attack");
         setPvpFloatingDmg({
@@ -1481,7 +1686,7 @@ export default function JadeXianxiaH5Game() {
     <div className="min-h-screen relative flex flex-col items-center pb-28 sm:pb-36 px-3 sm:px-6 select-none pt-12 sm:pt-14">
       <StarlightCloudCanvas />
 
-      {/* 0. 链上操作全局非侵入式微芒浮标 (不突兀的顶部道符提示，解决需求3) */}
+      {/* 0. 链上操作全局非侵入式微芒浮标 */}
       {activeLoading && (
         <div className="fixed top-11 left-1/2 -translate-x-1/2 z-50 pointer-events-none animate-fadeIn">
           <div className="bg-[#12221F]/95 border border-[#C8AA72] px-4 py-1.5 shadow-2xl flex items-center gap-2.5 backdrop-blur-md">
@@ -1496,18 +1701,87 @@ export default function JadeXianxiaH5Game() {
         </div>
       )}
 
-      {/* 1. 顶部极窄通栏 (Top 36px System Bar，系统操作与修仙属性彻底分离) */}
-      <div className="w-full fixed top-0 left-0 right-0 z-40 xianxia-dark-bar h-9 flex items-center justify-between px-4 sm:px-8 text-xs">
-        <div className="flex items-center gap-3">
-          <span className="text-[#C8AA72] font-serif font-bold tracking-widest text-[13px]">
+      {/* 0.5 醒目道具扣减与属性获得游戏飘字横幅 (满足需求4：道具扣减提示要明显) */}
+      {deltaBannerItems.length > 0 && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-wrap items-center justify-center gap-2.5 px-4 max-w-2xl">
+          {deltaBannerItems.map((item) => (
+            <div
+              key={item.id}
+              className={`px-3.5 py-1.5 border-2 shadow-2xl flex items-center gap-2 font-serif animate-bounce backdrop-blur-md ${
+                item.isDeduction
+                  ? "bg-[#3B0A0A]/95 border-[#F87171] text-[#FEE2E2] shadow-[0_0_24px_rgba(239,68,68,0.55)]"
+                  : "bg-[#092E26]/95 border-[#34D399] text-[#D1FAE5] shadow-[0_0_24px_rgba(16,185,129,0.5)]"
+              }`}
+            >
+              <span className="text-base leading-none">{item.icon}</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 font-bold uppercase tracking-wider ${
+                  item.isDeduction
+                    ? "bg-[#EF4444] text-white"
+                    : "bg-[#10B981] text-[#052E24]"
+                }`}
+              >
+                {item.isDeduction ? t("消耗扣减", "SPENT") : t("仙缘获得", "GAINED")}
+              </span>
+              <span className="text-xs font-bold tracking-wide">
+                {lang === "en" ? item.labelEn : item.labelZh}
+              </span>
+              <span
+                className={`font-mono text-base font-extrabold tabular-nums ${
+                  item.isDeduction ? "text-[#FCA5A5]" : "text-[#FDE68A]"
+                }`}
+              >
+                {item.delta > 0 ? `+${item.delta}` : item.delta}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 1. 顶部极窄通栏 (Top 36px System Bar，含古琴仙乐与战斗音效开关) */}
+      <div className="w-full fixed top-0 left-0 right-0 z-40 xianxia-dark-bar h-9 flex items-center justify-between px-3 sm:px-8 text-xs">
+        <div className="flex items-center gap-2.5">
+          <span className="text-[#C8AA72] font-serif font-bold tracking-widest text-[13px] whitespace-nowrap">
             太虚仙宗 · 问道天关
           </span>
-          <span className="text-[#4F736C]">|</span>
-          <span className="text-[#8AB8AF] font-mono text-[11px] hidden sm:inline">
-            NEAR Protocol NEP-413
-          </span>
+          <span className="text-[#4F736C] hidden sm:inline">|</span>
+          {/* 仙乐 BGM 与点击战斗音效控制组 */}
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handleToggleBgm}
+              className={`px-2 py-0.5 border text-[11px] font-serif flex items-center gap-1 transition whitespace-nowrap ${
+                bgmPlaying
+                  ? "bg-[#1A3831] border-[#52D1B2] text-[#5FE3C8]"
+                  : "bg-[#162724] border-[#C8AA72]/40 text-[#86ABA3] hover:text-white"
+              }`}
+              title="开启/关闭五声音阶古琴洞天背景仙乐"
+            >
+              <Music className={`w-3 h-3 ${bgmPlaying ? "animate-spin" : ""}`} />
+              <span>{bgmPlaying ? t("仙乐·鸣", "BGM ON") : t("仙乐·静", "BGM OFF")}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleToggleSfx}
+              className={`px-2 py-0.5 border text-[11px] font-serif flex items-center gap-1 transition whitespace-nowrap ${
+                sfxEnabled
+                  ? "bg-[#1A3831] border-[#C8AA72]/70 text-[#F2CE85]"
+                  : "bg-[#162724] border-[#C8AA72]/30 text-[#6F8E88]"
+              }`}
+              title="开启/关闭点击、铸剑、飞剑斩击与扣减音效"
+            >
+              {sfxEnabled ? (
+                <Volume2 className="w-3 h-3 text-[#F2CE85]" />
+              ) : (
+                <VolumeX className="w-3 h-3 text-[#6F8E88]" />
+              )}
+              <span className="hidden md:inline">
+                {sfxEnabled ? t("音效·开", "SFX ON") : t("音效·关", "SFX OFF")}
+              </span>
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-3 font-serif">
+        <div className="flex items-center gap-2 sm:gap-3 font-serif">
           {/* NEAR 测试网钱包状态与直连 */}
           {signedAccountId ? (
             <button
@@ -1516,14 +1790,14 @@ export default function JadeXianxiaH5Game() {
                 setAccountInput(signedAccountId);
                 setIsAccountModalOpen(true);
               }}
-              className="text-[#E0C99B] hover:text-[#FFFFFF] transition-colors flex items-center gap-1.5 px-2 py-0.5 border border-[#52D1B2] bg-[#112622] shadow-xs"
+              className="text-[#E0C99B] hover:text-[#FFFFFF] transition-colors flex items-center gap-1.5 px-2 py-0.5 border border-[#52D1B2] bg-[#112622] shadow-xs whitespace-nowrap"
               title="已连接 NEAR 测试网钱包，点击查看详情或切换"
             >
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#52D1B2] opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-[#3BB89A]"></span>
               </span>
-              <span className="font-mono text-[11px] text-[#5FE3C8] truncate max-w-[120px] sm:max-w-none">
+              <span className="font-mono text-[11px] text-[#5FE3C8] truncate max-w-[100px] sm:max-w-none">
                 {signedAccountId}
               </span>
               <span className="text-[10px] text-[#52D1B2] font-serif border-l border-[#52D1B2]/40 pl-1">
@@ -1535,12 +1809,12 @@ export default function JadeXianxiaH5Game() {
               <button
                 type="button"
                 onClick={handleWalletConnect}
-                className="xianxia-btn-gold px-2 py-0.5 text-xs font-bold shadow-xs flex items-center gap-1 animate-pulse"
+                className="xianxia-btn-gold px-2 py-0.5 text-xs font-bold shadow-xs flex items-center gap-1 whitespace-nowrap"
                 title="一键连接官方 NEAR 测试网钱包 (支持 Meteor, MyNearWallet, HERE 等)"
               >
                 <Wallet className="w-3.5 h-3.5 text-[#7D5E2A]" />
                 <span className="font-serif tracking-wider text-[#253D39]">
-                  {t("连接测试网钱包", "Connect Wallet")}
+                  {t("连接钱包", "Connect Wallet")}
                 </span>
               </button>
               <button
@@ -1549,24 +1823,23 @@ export default function JadeXianxiaH5Game() {
                   setAccountInput(activeAccountId);
                   setIsAccountModalOpen(true);
                 }}
-                className="text-[#A2C4BD] hover:text-[#FFFFFF] transition-colors flex items-center gap-1 px-1.5 py-0.5 border border-[#C8AA72]/40 bg-[#162724] text-[10px] font-mono"
+                className="text-[#A2C4BD] hover:text-[#FFFFFF] transition-colors flex items-center gap-1 px-1.5 py-0.5 border border-[#C8AA72]/40 bg-[#162724] text-[10px] font-mono whitespace-nowrap"
                 title="免钱包直接体验：输入或切换指定账号档案"
               >
                 <User className="w-3 h-3 text-[#5FE3C8]" />
-                <span className="truncate max-w-[80px] sm:max-w-none">{activeAccountId}</span>
+                <span className="truncate max-w-[75px] sm:max-w-none">{activeAccountId}</span>
               </button>
             </div>
           )}
-          <span className="text-[#4F736C]">|</span>
           {/* 天阙传谕 · 飞剑传书信箱入口 */}
           <button
             type="button"
             onClick={handleOpenMailbox}
-            className="text-[#E0C99B] hover:text-[#FFFFFF] transition-colors flex items-center gap-1.5 relative px-2 py-0.5 border border-[#C8AA72]/50 bg-[#162724] shadow-xs"
+            className="text-[#E0C99B] hover:text-[#FFFFFF] transition-colors flex items-center gap-1.5 relative px-2 py-0.5 border border-[#C8AA72]/50 bg-[#162724] shadow-xs whitespace-nowrap"
             title="查看天阙传谕、周榜结算法旨与仙资附件"
           >
             <Mail className="w-3.5 h-3.5 text-[#F2CE85]" />
-            <span className="font-serif tracking-wider font-semibold">
+            <span className="font-serif tracking-wider font-semibold hidden sm:inline">
               {t("天阙传谕", "Decrees")}
             </span>
             {cultivator.unreadMailCount > 0 && (
@@ -1578,238 +1851,263 @@ export default function JadeXianxiaH5Game() {
               </span>
             )}
           </button>
-          <span className="text-[#4F736C]">|</span>
           {/* 灵石与 NEAR 汇率指示器与充值入口 */}
           <button
             type="button"
             onClick={() => setIsRechargeModalOpen(true)}
-            className="text-[#F2CE85] hover:text-[#FFFFFF] transition-colors flex items-center gap-1 px-2 py-0.5 border border-[#C8AA72]/50 bg-[#162724] shadow-xs"
+            className="text-[#F2CE85] hover:text-[#FFFFFF] transition-colors flex items-center gap-1 px-2 py-0.5 border border-[#C8AA72]/50 bg-[#162724] shadow-xs whitespace-nowrap"
             title="查看灵石与 NEAR 兑换规则及收益模式（1 NEAR = 50 灵石，点击充值）"
           >
             <Coins className="w-3.5 h-3.5 text-[#5FE3C8]" />
-            <span className="font-mono text-[11px] text-[#5FE3C8]">1N=50石</span>
-            <span className="text-[10px] text-[#C8AA72] font-serif border-l border-[#C8AA72]/40 pl-1">
-              {t("充值与法则", "Recharge")}
-            </span>
+            <span className="font-mono text-[11px] text-[#5FE3C8]">+充灵石</span>
           </button>
-          <span className="text-[#4F736C]">|</span>
           <Link
             href="/guide"
-            className="text-[#C8AA72] hover:text-[#FFFFFF] transition-colors flex items-center gap-1.5"
-            title="查看游戏完整玩法教程、经济模型（含20%开发运营金库）与部署流程"
+            className="text-[#C8AA72] hover:text-[#FFFFFF] transition-colors hidden md:flex items-center gap-1 whitespace-nowrap"
           >
             <BookOpen className="w-3.5 h-3.5" />
-            <span>{t("玩法与经济指南", "Guide & Tokenomics")}</span>
+            <span>{t("指南", "Guide")}</span>
           </Link>
-          <span className="text-[#4F736C]">|</span>
-          {tutorialStage < 6 && (
-            <>
-              <button
-                onClick={() => setTutorialStage(6)}
-                className="text-[#A2C4BD] hover:text-[#FFFFFF] transition-colors flex items-center gap-1"
-              >
-                <Unlock className="w-3 h-3" />
-                <span>{t("全阁开启", "Unlock All")}</span>
-              </button>
-              <span className="text-[#4F736C]">|</span>
-            </>
-          )}
-          <button
-            onClick={() => {
-              setReshapeAvatar(cultivator.avatarClass);
-              setReshapeDaoName(cultivator.daoName);
-              setIsReshapeModalOpen(true);
-            }}
-            className="text-[#E0C99B] hover:text-[#FFFFFF] transition-colors flex items-center gap-1 px-1.5 py-0.5 border border-[#C8AA72]/40 bg-[#162724]"
-            title="道身重塑需支付 0.5 NEAR 或 200 灵石"
-          >
-            <Sparkles className="w-3 h-3 text-[#FFDF9E]" />
-            <span>{t("重塑道身", "Reshape")}</span>
-          </button>
-          <span className="text-[#4F736C]">|</span>
           <button
             onClick={() => setLang((prev) => (prev === "zh" ? "en" : "zh"))}
-            className="text-[#C8AA72] hover:text-[#FFFFFF] transition-colors font-mono"
+            className="text-[#C8AA72] hover:text-[#FFFFFF] transition-colors font-mono px-1"
           >
-            {lang === "zh" ? "EN" : "中文"}
+            {lang === "zh" ? "EN" : "中"}
           </button>
         </div>
       </div>
 
-      {/* 2. 顶部原生悬浮游戏 HUD (无底框冷金雕刻仪轨，彻底消灭胶囊药丸) */}
-      <header className="w-full max-w-5xl mt-2 z-30">
-        <div className="xianxia-status-shelf px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
-          {/* 左侧：道号与境界印可 */}
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 border border-[#C8AA72] bg-[#162925] flex items-center justify-center text-[#E5D2AB] font-serif font-bold text-sm shadow-inner">
-              道
+      {/* 2. 游戏化顶部状态与资源槽 HUD (RPG Status & Resource Slots Bar，带实时扣减/增加动态跳字) */}
+      <header className="w-full max-w-5xl mt-1.5 z-30">
+        <div className="xianxia-status-shelf px-3 sm:px-5 py-2 flex flex-wrap items-center justify-between gap-2.5 text-xs">
+          {/* 左侧：角色头像框 + 道号 + 境界 + 战力 */}
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 border-2 border-[#C8AA72] bg-[#10201D] overflow-hidden shrink-0 shadow-md relative">
+              <img
+                src={`/characters/${resolveCharacterConfig(avatarClass).id}.jpg`}
+                alt={cultivator.daoName}
+                className="w-full h-full object-cover object-top"
+              />
+              <span className="absolute bottom-0 right-0 px-1 bg-[#B8860B] text-white text-[8px] font-mono font-bold leading-tight">
+                Lv.{cultivator.realmLevel}
+              </span>
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="font-serif font-bold text-base text-[#F4F9F7] tracking-[0.18em]">
+              <div className="flex items-center gap-1.5">
+                <span className="font-serif font-bold text-sm sm:text-base text-[#F4F9F7] tracking-widest whitespace-nowrap">
                   {trDaoName(cultivator.daoName, lang)}
                 </span>
-                <span className="flex items-center gap-1 text-[#E5D2AB] text-[11px] font-serif border border-[#C8AA72]/45 px-1.5 py-0.2 bg-[#1A2E2A]">
-                  <CinnabarSeal text="真" variant="rect" />
-                  <span>
-                    {trRealm(cultivator.realm, lang)} · {cultivator.realmLevel}
-                    {t("层", "")}
-                  </span>
+                <span className="text-[#E5D2AB] text-[10px] font-serif border border-[#C8AA72]/50 px-1.5 py-0.2 bg-[#1A2E2A] whitespace-nowrap">
+                  {trRealm(cultivator.realm, lang)}·{cultivator.realmLevel}{t("层", "")}
+                </span>
+                <span className="px-1.5 py-0.2 bg-[#2B1F0E] border border-[#D4AF37]/60 text-[#FDE68A] font-mono text-[10.5px] font-bold whitespace-nowrap">
+                  ⚔️ {t("战力", "PWR")} {cultivator.maxHp + cultivator.atk * 4}
                 </span>
               </div>
-              <div className="text-[11px] text-[#86ABA3] font-serif">
-                {t(cultivator.title, "Taixu Sect Inner Disciple")}
+              <div className="text-[10.5px] text-[#86ABA3] font-serif flex items-center gap-2 mt-0.5">
+                <span>{t(cultivator.title, "Taixu Sect Disciple")}</span>
+                <span className="text-[#C8AA72]/50">|</span>
+                <span className="text-[#5FE3C8] font-mono">
+                  🏆 {t("论剑积分", "ELO")}: {cultivator.scores.duelScore}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* 中央与右侧：古籍等宽数值仪表盘 (用菱形中式符号分隔，严禁 pill badges) */}
-          <div className="flex items-center gap-3 sm:gap-4 font-serif text-[#C4DDD7]">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[#86ABA3] text-[11px]">{t("气血", "HP")}:</span>
-              <span className="text-[#5FE3C8] font-mono font-bold text-sm sm:text-base tabular-nums">
-                {cultivator.maxHp}
-              </span>
-            </div>
-
-            <span className="text-[#C8AA72]/60 select-none">◇</span>
-
-            <div className="flex items-center gap-1.5">
-              <span className="text-[#86ABA3] text-[11px]">{t("攻击", "ATK")}:</span>
-              <span className="text-[#F2CE85] font-mono font-bold text-sm sm:text-base tabular-nums">
-                {cultivator.atk}
-              </span>
-            </div>
-
-            <span className="text-[#C8AA72]/60 select-none">◇</span>
-
-            <div className="flex items-center gap-1.5">
-              <span className="text-[#86ABA3] text-[11px]">{t("灵石", "Stones")}:</span>
-              <span className="text-[#F2CE85] font-mono font-bold text-sm sm:text-base tabular-nums">
-                {cultivator.spiritStones}
-              </span>
-            </div>
-
-            <span className="text-[#C8AA72]/60 select-none hidden sm:inline">◇</span>
-
-            <div className="hidden sm:flex items-center gap-1.5">
-              <span className="text-[#86ABA3] text-[11px]">{t("灵丹", "Pills")}:</span>
-              <span className="text-[#5FE3C8] font-mono font-bold text-sm tabular-nums">
-                ×{cultivator.inventory.healingPills}
-              </span>
-            </div>
+          {/* 右侧：5大游戏道具与属性格子 (带明显扣减/增益跳字提示) */}
+          <div className="grid grid-cols-5 gap-1.5 sm:gap-2 font-serif">
+            {[
+              {
+                key: "hp",
+                icon: "❤️",
+                label: t("气血", "HP"),
+                value: cultivator.maxHp,
+                color: "text-[#5FE3C8]",
+                delta: slotDeltas.hp,
+              },
+              {
+                key: "atk",
+                icon: "🗡️",
+                label: t("攻击", "ATK"),
+                value: cultivator.atk,
+                color: "text-[#F2CE85]",
+                delta: slotDeltas.atk,
+              },
+              {
+                key: "stones",
+                icon: "💎",
+                label: t("灵石", "Stones"),
+                value: cultivator.spiritStones,
+                color: "text-[#FDE68A]",
+                delta: slotDeltas.stones,
+                onClick: () => setIsRechargeModalOpen(true),
+              },
+              {
+                key: "pills",
+                icon: "💊",
+                label: t("回春丹", "Pills"),
+                value: `×${cultivator.inventory.healingPills}`,
+                color: "text-[#6EE7B7]",
+                delta: slotDeltas.pills,
+              },
+              {
+                key: "iron",
+                icon: "⛏️",
+                label: t("玄铁矿", "Ores"),
+                value: `×${cultivator.inventory.ironOres}`,
+                color: "text-[#E2E8F0]",
+                delta: slotDeltas.iron,
+              },
+            ].map((slot) => {
+              const hasDelta = slot.delta !== undefined && slot.delta !== 0;
+              const isNeg = (slot.delta || 0) < 0;
+              return (
+                <div
+                  key={slot.key}
+                  onClick={slot.onClick}
+                  className={`relative px-2 sm:px-2.5 py-1 border transition-all flex flex-col justify-between min-w-[60px] sm:min-w-[74px] ${
+                    slot.onClick ? "cursor-pointer hover:border-[#F2CE85]" : ""
+                  } ${
+                    hasDelta
+                      ? isNeg
+                        ? "bg-[#450A0A] border-[#F87171] ring-1 ring-[#F87171] scale-105"
+                        : "bg-[#064E3B] border-[#34D399] ring-1 ring-[#34D399] scale-105"
+                      : "bg-[#0F1E1B]/90 border-[#C8AA72]/40"
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-[10px] text-[#94B8B0] whitespace-nowrap">
+                    <span>{slot.label}</span>
+                    <span>{slot.icon}</span>
+                  </div>
+                  <div className={`font-mono font-bold text-xs sm:text-sm tabular-nums ${slot.color}`}>
+                    {slot.value}
+                  </div>
+                  {hasDelta && (
+                    <span
+                      className={`absolute -bottom-3 right-0 z-30 px-1.5 py-0.2 text-[10px] font-mono font-extrabold shadow-md animate-bounce whitespace-nowrap ${
+                        isNeg
+                          ? "bg-[#EF4444] text-white border border-[#FCA5A5]"
+                          : "bg-[#10B981] text-[#052E24] border border-[#A7F3D0]"
+                      }`}
+                    >
+                      {slot.delta! > 0 ? `+${slot.delta}` : slot.delta}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </header>
 
       {/* 解锁新仙阁柔光提示卷轴 */}
       {unlockNotice && (
-        <div className="w-full max-w-5xl mt-2.5 z-20">
-          <div className="xianxia-chamfer-sm bg-[#FFFDF5] border border-[#C8AA72] px-4 py-2 text-center text-xs sm:text-sm font-serif font-bold text-[#6E5122] flex items-center justify-center gap-2 shadow-md">
+        <div className="w-full max-w-5xl mt-2 z-20">
+          <div className="xianxia-chamfer-sm bg-[#FFFDF5] border border-[#C8AA72] px-4 py-1.5 text-center text-xs font-serif font-bold text-[#6E5122] flex items-center justify-center gap-2 shadow-md">
             <Sparkles className="w-4 h-4 text-[#B89452]" />
             <span>{unlockNotice}</span>
           </div>
         </div>
       )}
 
-      {/* 3. 师尊引路：横向展开的水墨宣纸画轴 (左右两侧带实木轴头) */}
-      <section className="w-full max-w-5xl mt-3 z-20">
-        <ScrollBanner>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 border-2 border-[#A8884C] bg-[#162724] shrink-0 shadow-sm relative overflow-hidden">
-                <img
-                  src="/characters/venerable.jpg"
-                  alt="上古仙尊"
-                  className="w-full h-full object-cover object-top"
-                />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="flex items-center gap-1 font-serif text-xs font-bold text-[#7A5C29] border border-[#C8AA72]/60 px-1.5 py-0.2 bg-white/70">
-                    <CinnabarSeal text="引" variant="rect" />
-                    <span>{guideInfo.stepText}</span>
-                  </span>
-                  <span className="text-sm font-serif font-bold text-[#2A1D0E] tracking-wider">
-                    {guideInfo.title}
-                  </span>
-                </div>
-                <p className="text-xs font-serif text-[#4A3922] mt-1 leading-relaxed">
-                  {guideInfo.desc}
-                </p>
-              </div>
+      {/* 3. 游戏主线任务与五步仙途一体化导航条 (紧凑型 RPG 任务栏，把主视口空间留给游戏舞台) */}
+      <section className="w-full max-w-5xl mt-2 z-20">
+        <div className="bg-[#FAF5E8]/92 border border-[#C8AA72]/70 px-3 sm:px-4 py-2 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-2.5">
+          {/* 左侧：师尊头像与当前主线指引 */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 border border-[#A8884C] bg-[#162724] shrink-0 overflow-hidden relative">
+              <img
+                src="/characters/venerable.jpg"
+                alt="上古仙尊"
+                className="w-full h-full object-cover object-top"
+              />
             </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="px-1.5 py-0.2 bg-[#253D39] text-[#F2CE85] text-[10px] font-serif font-bold whitespace-nowrap">
+                  {guideInfo.stepText}
+                </span>
+                <span className="text-xs font-serif font-bold text-[#2A1D0E] truncate">
+                  {guideInfo.title}
+                </span>
+              </div>
+              <p className="text-[11px] font-serif text-[#5C4728] truncate mt-0.5">
+                {guideInfo.desc}
+              </p>
+            </div>
+          </div>
 
-            {tutorialStage === 4 && activeBuilding !== "FORGE" && (
+          {/* 右侧：快捷五步仙途节点与一键跳转 */}
+          <div className="flex items-center gap-1.5 shrink-0 self-end md:self-center">
+            <TutorialStepMilestoneBar
+              currentStage={tutorialStage}
+              onStepClick={(target) => setActiveBuilding(target)}
+            />
+            {tutorialStage < 6 && (
               <button
-                onClick={() => setActiveBuilding("FORGE")}
-                className="xianxia-btn-gold px-3.5 py-1.5 text-xs font-serif font-bold shrink-0 shadow-sm"
+                type="button"
+                onClick={() => setTutorialStage(6)}
+                className="px-2 py-1 text-[10px] font-serif bg-[#253D39] text-[#E5D2AB] hover:text-white border border-[#C8AA72]/60 whitespace-nowrap"
               >
-                {t("移步天工剑庐 →", "Enter Sword Forge →")}
-              </button>
-            )}
-            {tutorialStage === 5 && activeBuilding !== "REALM" && (
-              <button
-                onClick={() => setActiveBuilding("REALM")}
-                className="xianxia-btn-gold px-3.5 py-1.5 text-xs font-serif font-bold shrink-0 shadow-sm"
-              >
-                {t("登临云海试炼塔 →", "Enter Trial Tower →")}
-              </button>
-            )}
-            {tutorialStage === 6 && activeBuilding !== "TREASURY" && (
-              <button
-                onClick={() => setActiveBuilding("TREASURY")}
-                className="xianxia-btn-celadon px-3.5 py-1.5 text-xs font-serif font-bold shrink-0 shadow-sm"
-              >
-                {t("瞻仰宗门天榜 →", "View Heaven Boards →")}
+                {t("跳过引导", "Unlock All")}
               </button>
             )}
           </div>
-        </ScrollBanner>
+        </div>
       </section>
 
-      {/* 3.5 仙途五步初引任务指引进度条 (解决需求2：一目了然的新手目标与跳转) */}
-      <TutorialStepMilestoneBar
-        currentStage={tutorialStage}
-        onStepClick={(target) => setActiveBuilding(target)}
-      />
-      {/* 4. 主舞台：左侧修仙道身立绘碑台 + 右侧四大仙阁交互画卷 */}
-      <main className="w-full max-w-5xl mt-4 grid grid-cols-1 lg:grid-cols-12 gap-5 z-20">
-        {/* 左侧：道身立绘浮空玉台 (去大白圆角框，改为冷峻白玉匣碑式排版) */}
+      {/* 4. 游戏主舞台：左侧 RPG 道身装备与乾坤袋面板 + 右侧五大仙阁场景 */}
+      <main className="w-full max-w-5xl mt-3 grid grid-cols-1 lg:grid-cols-12 gap-4 z-20">
+        {/* 左侧：RPG 角色装备栏与乾坤储物袋 */}
         <section className="lg:col-span-4">
           <JadeGlassPanel
             withTassels
-            className="p-5 flex flex-col items-center justify-between min-h-[460px] relative select-none"
+            className="p-4 flex flex-col items-center justify-between min-h-[460px] relative select-none"
           >
-            {/* 头顶柔光飘字 (中式方框微切角) */}
+            {/* 头顶柔光飘字 */}
             {floatingStatText && (
-              <div className="absolute top-12 z-30 px-3 py-1 bg-[#FAF6EC] border border-[#B89452] text-[#593F14] font-serif font-bold text-xs shadow-md animate-bounce">
+              <div className="absolute top-10 z-30 px-3 py-1 bg-[#12221F] border border-[#F2CE85] text-[#F2CE85] font-serif font-bold text-xs shadow-xl animate-bounce">
                 {floatingStatText}
               </div>
             )}
 
-            {/* 顶栏：道行战力与灵丹储备 (古典书页条目) */}
-            <div className="w-full flex items-center justify-between text-xs font-serif text-[#486B65] border-b border-[#C8AA72]/30 pb-2">
-              <span className="flex items-center gap-1.5">
-                <span className="text-[#789690]">{t("道行战力", "Dao Power")}:</span>
-                <strong className="text-[#8A6A32] font-mono text-sm tabular-nums">
-                  {cultivator.maxHp + cultivator.atk * 4}
-                </strong>
-              </span>
-              <span className="flex items-center gap-1 text-[#2E6B5E]">
-                <span className="text-[#789690]">{t("回春丹", "Pills")}:</span>
-                <strong className="font-mono text-sm tabular-nums">
-                  ×{cultivator.inventory.healingPills}
-                </strong>
-              </span>
+            {/* 顶栏：道身契约状态与动作入口 */}
+            <div className="w-full flex items-center justify-between text-xs font-serif border-b border-[#C8AA72]/35 pb-2">
+              <div className="flex items-center gap-1.5">
+                <CinnabarSeal text="契" variant="rect" />
+                <span className="font-bold text-[#20423C] text-[11px]">
+                  {t("本命道身 · 灵魂绑定", "Soulbound Dao NFT")}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReshapeAvatar(cultivator.avatarClass);
+                    setReshapeDaoName(cultivator.daoName);
+                    setIsReshapeModalOpen(true);
+                  }}
+                  className="px-1.5 py-0.5 text-[10px] font-serif font-bold text-[#7D5E2A] bg-[#FAF5E6] hover:bg-[#F3E8C8] border border-[#C8AA72]"
+                >
+                  {t("重塑", "Reshape")}
+                </button>
+                <button
+                  type="button"
+                  disabled={isRollingSpiritRoot}
+                  onClick={handleRollSpiritRootWithNear}
+                  className="px-1.5 py-0.5 text-[10px] font-serif font-bold text-[#205247] bg-[#EAF4F1] hover:bg-[#D7EAE4] border border-[#7BB5A8] flex items-center gap-0.5"
+                >
+                  <RefreshCw className={`w-2.5 h-2.5 ${isRollingSpiritRoot ? "animate-spin" : ""}`} />
+                  <span>{t("洗灵根", "Wash Root")}</span>
+                </button>
+              </div>
             </div>
 
-            {/* 中央白玉立绘区：配局部竖排称号与朱砂印章 */}
+            {/* 中央：角色立绘与左右护法槽位 (RPG 纸娃娃角色风格) */}
             <div className="my-2 flex flex-col items-center w-full relative">
-              {/* 侧边古典竖排称号点缀 (打破现代网页水平单调感) */}
               <div className="absolute top-1 right-1 z-20 flex flex-col items-center gap-1 pointer-events-none">
                 <CinnabarSeal text="仙" variant="square" />
-                <div className="vertical-rl font-serif font-bold text-xs text-[#20423C] tracking-[0.25em] bg-white/80 py-1.5 px-0.5 border border-[#C8AA72]/45 shadow-xs">
+                <div className="vertical-rl font-serif font-bold text-xs text-[#20423C] tracking-[0.25em] bg-white/85 py-1.5 px-0.5 border border-[#C8AA72]/45 shadow-xs">
                   {resolveCharacterConfig(avatarClass).zhName}
                 </div>
               </div>
@@ -1829,181 +2127,135 @@ export default function JadeXianxiaH5Game() {
                 />
               </div>
 
-              <div className="mt-1 text-center font-serif">
-                <div className="text-lg font-bold text-[#253D39] tracking-[0.2em]">
-                  {trDaoName(cultivator.daoName, lang)}
-                </div>
-                {cultivator.equippedArtifact ? (
-                  <div className="text-xs text-[#8A6830] font-medium mt-0.5">
-                    {t("本命佩剑:", "Equipped:")}【
-                    {trArtifactName(cultivator.equippedArtifact.name, lang)}】(+
-                    {cultivator.equippedArtifact.atkBonus} ATK)
+              {/* 装备槽与灵根槽 (双栏 RPG 装备框) */}
+              <div className="w-full grid grid-cols-2 gap-2 mt-2 font-serif">
+                {/* 槽位1：本命佩剑 */}
+                <div
+                  onClick={() => forgeUnlocked && setActiveBuilding("FORGE")}
+                  className="p-2 bg-[#162724] border border-[#C8AA72]/60 text-left cursor-pointer hover:border-[#F2CE85] transition"
+                >
+                  <div className="flex items-center justify-between text-[10px] text-[#86ABA3]">
+                    <span>{t("【本命法宝】", "[Weapon Slot]")}</span>
+                    <Swords className="w-3 h-3 text-[#F2CE85]" />
                   </div>
-                ) : (
-                  <div className="text-xs text-[#6F8E88] mt-0.5">
-                    {t("袖手听云 · 尚未佩剑", "Unarmed · Forge a Spirit Sword")}
-                  </div>
-                )}
-              </div>
-
-              {/* 本命真灵已结契法印 & 重塑道身/洗炼灵根入口 (满足需求1：选完不能随意切换，需重塑费用) */}
-              <div className="mt-2.5 w-full bg-[#EDF5F3]/90 p-2 border border-[#C8AA72]/50 space-y-1.5 font-serif">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <CinnabarSeal text="契" variant="rect" />
-                    <span className="text-[11px] font-bold text-[#205247]">
-                      {t("本命法相 · 真灵已结契", "Dao Body Bound (NFT)")}
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-mono text-[#86ABA3]">
-                    #{cultivator.nftTokenId.replace("cultivator-nft:", "")}
-                  </span>
-                </div>
-
-                {/* 当前先天灵根词条与加成 */}
-                <div className="flex items-center justify-between text-[11px] bg-white/80 px-2 py-1 border border-[#C8AA72]/35">
-                  <div className="flex items-center gap-1">
-                    <span
-                      className={`px-1 py-0.2 text-[10px] font-bold border ${
-                        cultivator.spiritRoot?.badgeStyle ||
-                        "border-[#8A9591] text-[#4A5552] bg-[#EFEFEF]"
-                      }`}
-                    >
-                      {cultivator.spiritRoot?.tier || "凡品"}
-                    </span>
-                    <span className="text-[#2B4B44] font-semibold truncate max-w-[100px]">
-                      {cultivator.spiritRoot?.name || "五行杂灵根"}
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-[#A67838] font-mono font-bold">
-                    {cultivator.spiritRoot?.hpBonusPct
-                      ? `+${cultivator.spiritRoot.hpBonusPct}%HP `
-                      : ""}
-                    {cultivator.spiritRoot?.atkBonusPct
-                      ? `+${cultivator.spiritRoot.atkBonusPct}%ATK `
-                      : ""}
-                    {cultivator.spiritRoot?.critBonusPct
-                      ? `+${cultivator.spiritRoot.critBonusPct}%暴击`
-                      : ""}
-                    {!cultivator.spiritRoot?.hpBonusPct &&
-                      !cultivator.spiritRoot?.atkBonusPct &&
-                      !cultivator.spiritRoot?.critBonusPct &&
-                      "凡根·0%加成"}
-                  </div>
+                  {cultivator.equippedArtifact ? (
+                    <>
+                      <div className="text-xs font-bold text-[#F2CE85] truncate mt-0.5">
+                        {trArtifactName(cultivator.equippedArtifact.name, lang)}
+                      </div>
+                      <div className="text-[10px] font-mono text-[#5FE3C8]">
+                        +{cultivator.equippedArtifact.atkBonus} ATK · 暴击{cultivator.equippedArtifact.critRatePct}%
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-xs font-bold text-[#94B8B0] mt-0.5">
+                        {t("尚未佩剑", "Unarmed")}
+                      </div>
+                      <div className="text-[10px] text-[#C8AA72] underline">
+                        {t("前往剑庐锻造 →", "Forge Sword →")}
+                      </div>
+                    </>
+                  )}
                 </div>
 
-                {/* 重塑道身与灵根洗炼专属入口 */}
-                <div className="grid grid-cols-2 gap-1.5 pt-0.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setReshapeAvatar(cultivator.avatarClass);
-                      setReshapeDaoName(cultivator.daoName);
-                      setIsReshapeModalOpen(true);
-                    }}
-                    className="px-2 py-1 text-[11px] font-serif font-bold text-[#7D5E2A] bg-[#FAF5E6] hover:bg-[#F3E8C8] border border-[#C8AA72] flex items-center justify-center gap-1 shadow-2xs"
-                    title="重塑道身形象与道号 (消耗 200 灵石 或 0.5 NEAR)"
-                  >
-                    <Sparkles className="w-3 h-3 text-[#A87932]" />
-                    <span>{t("重塑道身", "Reshape")}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={isRollingSpiritRoot}
-                    onClick={handleRollSpiritRootWithNear}
-                    className="px-2 py-1 text-[11px] font-serif font-bold text-[#205247] bg-[#EAF4F1] hover:bg-[#D7EAE4] border border-[#7BB5A8] flex items-center justify-center gap-1 shadow-2xs"
-                    title="支付 0.1 NEAR 洗炼灵根高阶词条 (资金 100% 注入国库)"
-                  >
-                    <RefreshCw
-                      className={`w-3 h-3 text-[#3E8576] ${
-                        isRollingSpiritRoot ? "animate-spin" : ""
-                      }`}
-                    />
-                    <span>{t("洗炼灵根", "Wash Root")}</span>
-                  </button>
+                {/* 槽位2：先天灵根 */}
+                <div
+                  onClick={handleRollSpiritRootWithNear}
+                  className="p-2 bg-[#162724] border border-[#C8AA72]/60 text-left cursor-pointer hover:border-[#5FE3C8] transition"
+                >
+                  <div className="flex items-center justify-between text-[10px] text-[#86ABA3]">
+                    <span>{t("【先天灵根】", "[Spirit Root]")}</span>
+                    <Sparkles className="w-3 h-3 text-[#5FE3C8]" />
+                  </div>
+                  <div className="text-xs font-bold text-[#5FE3C8] truncate mt-0.5">
+                    {cultivator.spiritRoot?.name || "五行杂灵根"}
+                  </div>
+                  <div className="text-[10px] font-mono text-[#E5D2AB] truncate">
+                    {cultivator.spiritRoot?.hpBonusPct || cultivator.spiritRoot?.atkBonusPct
+                      ? `HP+${cultivator.spiritRoot.hpBonusPct}% ATK+${cultivator.spiritRoot.atkBonusPct}%`
+                      : t("0.1N 洗炼高阶词条", "0.1N Wash Root")}
+                  </div>
                 </div>
               </div>
             </div>
 
-            <CloudDivider className="my-1.5" />
-
-            {/* 紧凑古籍线装格排版：气血上限与攻击条 */}
-            <div className="w-full bg-white/75 border border-[#C8AA72]/55 p-3 space-y-2.5 font-serif text-xs">
-              {/* 气血进度条 (矩形古籍格) */}
-              <div>
-                <div className="flex justify-between text-[11px] mb-1">
-                  <span className="text-[#205247] font-semibold">
-                    {t("灵田固本 · 气血上限 (HP)", "Max HP (Herb Garden)")}
-                  </span>
-                  <span className="font-mono font-bold text-[#205247] tabular-nums">
-                    {cultivator.maxHp}{" "}
-                    <span className="text-[#3E8576] text-[10px]">
-                      (+{cultivator.herbBonusHp})
-                    </span>
-                  </span>
-                </div>
-                <div className="w-full h-2 bg-[#D3E5E1] border border-[#9CC5BD] overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-[#5BA496] to-[#34786B] transition-all duration-500"
-                    style={{
-                      width: `${Math.min(
-                        100,
-                        Math.round((cultivator.maxHp / 600) * 100)
-                      )}%`,
-                    }}
-                  />
-                </div>
+            {/* 底部：乾坤储物袋 (4格游戏背包槽位，道具扣减/获得时高亮闪烁) */}
+            <div className="w-full bg-[#132421] border border-[#C8AA72]/65 p-2.5 space-y-2 font-serif text-xs shadow-inner">
+              <div className="flex items-center justify-between text-[11px] text-[#E5D2AB] border-b border-[#C8AA72]/30 pb-1">
+                <span className="font-bold tracking-wider flex items-center gap-1">
+                  <span>🎒</span>
+                  <span>{t("乾坤储物袋 (道具实时变动)", "Storage Bag (Live Inventory)")}</span>
+                </span>
+                <span className="font-mono text-[10px] text-[#86ABA3]">
+                  💎 {cultivator.spiritStones} {t("灵石", "Stones")}
+                </span>
               </div>
 
-              {/* 攻击进度条 */}
-              <div>
-                <div className="flex justify-between text-[11px] mb-1">
-                  <span className="text-[#7A5923] font-semibold">
-                    {t("剑庐修锋 · 本命攻击 (ATK)", "Attack (Sword Forge)")}
-                  </span>
-                  <span className="font-mono font-bold text-[#7A5923] tabular-nums">
-                    {cultivator.atk}{" "}
-                    <span className="text-[#A6803F] text-[10px]">
-                      (+{cultivator.weaponBonusAtk})
-                    </span>
-                  </span>
-                </div>
-                <div className="w-full h-2 bg-[#EFE4D2] border border-[#C8AA72] overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-[#CFA763] to-[#96702C] transition-all duration-500"
-                    style={{
-                      width: `${Math.min(
-                        100,
-                        Math.round((cultivator.atk / 260) * 100)
-                      )}%`,
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* 古籍表格行: 矿产与灵种 */}
-              <div className="pt-2 border-t border-[#C8AA72]/30 grid grid-cols-3 gap-1 text-[11px] text-center text-[#4B6B65]">
-                <div className="border-r border-[#C8AA72]/30">
-                  <div className="text-[10px] text-[#789690]">{t("玄铁矿", "Iron")}</div>
-                  <div className="font-mono font-bold text-[#253D39] tabular-nums">
-                    {cultivator.inventory.ironOres}
-                  </div>
-                </div>
-                <div className="border-r border-[#C8AA72]/30">
-                  <div className="text-[10px] text-[#789690]">{t("星辰陨铁", "Meteor")}</div>
-                  <div className="font-mono font-bold text-[#253D39] tabular-nums">
-                    {cultivator.inventory.meteorOres}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-[#789690]">{t("灵草仙种", "Seeds")}</div>
-                  <div className="font-mono font-bold text-[#253D39] tabular-nums">
-                    {(cultivator.inventory.seedBag[1] || 0) +
+              <div className="grid grid-cols-4 gap-1.5 text-center">
+                {[
+                  {
+                    key: "iron",
+                    icon: "⛏️",
+                    name: t("玄铁矿", "Iron"),
+                    count: cultivator.inventory.ironOres,
+                    delta: slotDeltas.iron,
+                  },
+                  {
+                    key: "meteor",
+                    icon: "☄️",
+                    name: t("陨铁", "Meteor"),
+                    count: cultivator.inventory.meteorOres,
+                    delta: slotDeltas.meteor,
+                  },
+                  {
+                    key: "pills",
+                    icon: "💊",
+                    name: t("回春丹", "Pills"),
+                    count: cultivator.inventory.healingPills,
+                    delta: slotDeltas.pills,
+                  },
+                  {
+                    key: "seeds",
+                    icon: "🌱",
+                    name: t("灵草种", "Seeds"),
+                    count:
+                      (cultivator.inventory.seedBag[1] || 0) +
                       (cultivator.inventory.seedBag[2] || 0) +
-                      (cultivator.inventory.seedBag[3] || 0)}
-                  </div>
-                </div>
+                      (cultivator.inventory.seedBag[3] || 0),
+                    delta: slotDeltas.seeds,
+                  },
+                ].map((item) => {
+                  const hasDelta = item.delta !== undefined && item.delta !== 0;
+                  const isNeg = (item.delta || 0) < 0;
+                  return (
+                    <div
+                      key={item.key}
+                      className={`relative p-1.5 border transition-all ${
+                        hasDelta
+                          ? isNeg
+                            ? "bg-[#581010] border-[#F87171] ring-1 ring-[#F87171]"
+                            : "bg-[#0B4F3E] border-[#34D399] ring-1 ring-[#34D399]"
+                          : "bg-[#1A302C] border-[#C8AA72]/35"
+                      }`}
+                    >
+                      <div className="text-sm leading-none">{item.icon}</div>
+                      <div className="text-[10px] text-[#A9C7C0] mt-1 truncate">{item.name}</div>
+                      <div className="font-mono font-bold text-xs text-[#F4F9F7] tabular-nums">
+                        ×{item.count}
+                      </div>
+                      {hasDelta && (
+                        <span
+                          className={`absolute -top-2 -right-1 px-1 py-0 text-[10px] font-mono font-extrabold shadow-md animate-bounce ${
+                            isNeg ? "bg-[#EF4444] text-white" : "bg-[#10B981] text-[#052E24]"
+                          }`}
+                        >
+                          {item.delta! > 0 ? `+${item.delta}` : item.delta}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </JadeGlassPanel>
@@ -3033,226 +3285,205 @@ export default function JadeXianxiaH5Game() {
                 ];
 
                 if (boardViewTab === "ALL") {
+                  const seatMeta = [
+                    {
+                      badgeZh: "👑 魁首",
+                      badgeEn: "👑 #1",
+                      shareDefault: 50,
+                      rowBg:
+                        "bg-gradient-to-r from-[#FFF9E2] via-[#FEF3C7]/90 to-[#FDE68A]/50 border-l-4 border-l-[#D97706]",
+                      badgeStyle:
+                        "bg-gradient-to-r from-[#D97706] to-[#B45309] text-white shadow-2xs",
+                    },
+                    {
+                      badgeZh: "🥈 榜眼",
+                      badgeEn: "🥈 #2",
+                      shareDefault: 25,
+                      rowBg:
+                        "bg-gradient-to-r from-[#F8FAFC] to-[#E2E8F0]/70 border-l-4 border-l-[#64748B]",
+                      badgeStyle: "bg-[#475569] text-white",
+                    },
+                    {
+                      badgeZh: "🥉 探花",
+                      badgeEn: "🥉 #3",
+                      shareDefault: 15,
+                      rowBg:
+                        "bg-gradient-to-r from-[#FAF6F2] to-[#EFE6DD]/70 border-l-4 border-l-[#8D6E63]",
+                      badgeStyle: "bg-[#785549] text-white",
+                    },
+                    {
+                      badgeZh: "肆 进士",
+                      badgeEn: "#4",
+                      shareDefault: 10,
+                      rowBg: "bg-white/90 border-l-4 border-l-[#3E6B63]",
+                      badgeStyle: "bg-[#3E6B63] text-white",
+                    },
+                  ];
+
                   return (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 my-auto">
                       {boardsData.map((board) => {
-                        const top1 = board.entries[0];
-                        const top2 = board.entries[1];
-                        const top3 = board.entries[2];
-                        const remaining = board.entries.slice(3);
+                        const extraEntries = board.entries.slice(4);
                         const playerEntry = board.entries.find((e) => e.isPlayer);
                         const Icon = board.icon;
 
                         return (
                           <div
                             key={board.id}
-                            className="border border-[#C8AA72]/50 bg-white/80 p-3 space-y-2 font-serif shadow-xs flex flex-col justify-between"
+                            className="border border-[#C8AA72]/65 bg-white/90 font-serif shadow-xs flex flex-col justify-between overflow-hidden"
                           >
-                            {/* 榜首卡片头部 */}
-                            <div>
-                              <div className="flex items-center justify-between pb-1.5 border-b border-[#C8AA72]/30">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-6 h-6 rounded-xs bg-[#253D39] text-[#E5D2A8] flex items-center justify-center shrink-0 shadow-2xs">
-                                    <Icon className="w-3.5 h-3.5" />
+                            {/* 1. 榜单标准定高头部 (严格单行不折行，四榜高度 100% 一致) */}
+                            <div className="px-3 py-2 bg-[#F8F3E6] border-b border-[#C8AA72]/40">
+                              <div className="flex items-center justify-between gap-2 whitespace-nowrap">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <div className="w-5 h-5 bg-[#253D39] text-[#E5D2A8] flex items-center justify-center shrink-0">
+                                    <Icon className="w-3 h-3" />
                                   </div>
-                                  <div>
-                                    <div className="text-xs font-bold text-[#253D39] flex items-center gap-1.5">
-                                      <span>{board.title}</span>
-                                      <span className="text-[10px] font-mono px-1.5 py-0.2 bg-[#FAF2DE] border border-[#C8AA72]/40 text-[#8A6828]">
-                                        池: {board.poolStones}石
-                                      </span>
-                                    </div>
-                                    <div className="text-[10px] text-[#607E79] truncate" title={board.sub}>
-                                      {board.sub}
-                                    </div>
-                                  </div>
+                                  <span className="text-xs sm:text-[13px] font-bold text-[#253D39] tracking-wide">
+                                    {board.shortTitle}
+                                  </span>
+                                  <span className="text-[10px] font-mono px-1.5 py-0.2 bg-[#253D39]/10 text-[#253D39] font-bold">
+                                    {board.poolSharePct}%{t("池", " Pool")}
+                                  </span>
                                 </div>
-                                <span className="text-[11px] font-serif text-[#688580] bg-white/70 px-2 py-0.5 border border-[#C8AA72]/30 shrink-0">
-                                  {t(`共 ${board.entries.length} 位在榜`, `${board.entries.length} Cultivators`)}
-                                </span>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span className="text-[11px] font-mono font-bold px-2 py-0.5 bg-[#FEF3C7] border border-[#F59E0B]/50 text-[#92400E]">
+                                    💎 {t("池", "Pool")} {board.poolStones}{t("石", "S")}
+                                  </span>
+                                </div>
                               </div>
-
-                              {/* 内容列表区 */}
-                              <div className="space-y-2 mt-2">
-                                {board.entries.length === 0 ? (
-                                  <div className="py-6 text-center text-xs text-[#86ABA3] italic bg-white/40 border border-dashed border-[#C8AA72]/30 my-2">
-                                    {t("虚位以待，道友速速登榜", "Awaiting Cultivators")}
-                                  </div>
-                                ) : (
-                                  <>
-                                    {/* 1. 👑 榜首魁首特殊尊荣展示 */}
-                                    {top1 && (
-                                      <div
-                                        className={`p-2.5 border-2 relative overflow-hidden transition shadow-xs ${
-                                          top1.isPlayer
-                                            ? "bg-gradient-to-r from-[#FFFBEA] via-[#FAF1D6] to-[#F5E6BE] border-[#D4AF37] ring-1 ring-[#D4AF37]"
-                                            : "bg-gradient-to-r from-[#FFFDF2] via-[#FAF5E4] to-[#F5EBD0] border-[#D4AF37]/80"
-                                        }`}
-                                      >
-                                        <div className="absolute -right-2 -bottom-3 text-5xl font-serif text-[#D4AF37]/10 select-none pointer-events-none font-bold">
-                                          魁
-                                        </div>
-                                        <div className="flex items-center justify-between gap-2 mb-1.5">
-                                          <div className="flex items-center gap-1.5 text-xs font-bold text-[#8A5A12]">
-                                            <Crown className="w-3.5 h-3.5 text-[#D4AF37] fill-[#D4AF37] shrink-0" />
-                                            <span>{t("👑 榜首魁首 · 冠绝天榜", "👑 Rank 1 Champion")}</span>
-                                            {top1.isPlayer && (
-                                              <span className="text-[10px] bg-[#B8860B] text-white px-1.5 py-0.2 rounded-xs font-bold shrink-0">
-                                                {t("道友本人", "You")}
-                                              </span>
-                                            )}
-                                          </div>
-                                          <div className="flex items-center gap-1 font-mono text-xs font-bold text-[#855B14] bg-[#FEF3C7] px-2 py-0.5 border border-[#F59E0B]/40">
-                                            <span>+{top1.estimatedRewardStones} {t("灵石", "Stones")}</span>
-                                            <span className="text-[10px] text-[#A16207]">({top1.sharePct}%)</span>
-                                          </div>
-                                        </div>
-                                        <div className="flex items-center justify-between gap-2">
-                                          <div className="flex items-center gap-2 min-w-0">
-                                            <span className="w-5 h-5 rounded-full bg-gradient-to-b from-[#F59E0B] to-[#D97706] text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
-                                              1
-                                            </span>
-                                            <span className="text-sm font-bold text-[#3B2506] truncate max-w-[150px]" title={top1.daoName}>
-                                              {trDaoName(top1.daoName, lang)}
-                                            </span>
-                                          </div>
-                                          <span className="font-mono text-xs font-bold text-[#785412] bg-white/95 px-2 py-0.5 border border-[#C8AA72]/60 shrink-0 shadow-2xs">
-                                            {top1.metricLabel}
-                                          </span>
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    {/* 2. 🥈 榜眼 & 🥉 探花两列并排特殊展示 */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                                      {/* #2 榜眼 */}
-                                      {top2 ? (
-                                        <div
-                                          className={`p-2 border flex items-center justify-between gap-1.5 shadow-2xs ${
-                                            top2.isPlayer
-                                              ? "bg-[#F1F5F9] border-[#64748B] ring-1 ring-[#64748B]"
-                                              : "bg-gradient-to-r from-[#F8FAFC] to-[#EEF2F6] border-[#CBD5E1]"
-                                          }`}
-                                        >
-                                          <div className="flex items-center gap-1.5 min-w-0">
-                                            <span className="w-4 h-4 rounded-full bg-[#64748B] text-white font-bold text-[10px] flex items-center justify-center shrink-0">
-                                              2
-                                            </span>
-                                            <Medal className="w-3 h-3 text-[#64748B] shrink-0" />
-                                            <span className="text-xs font-bold text-[#1E293B] truncate max-w-[80px]" title={top2.daoName}>
-                                              {trDaoName(top2.daoName, lang)}
-                                            </span>
-                                            {top2.isPlayer && (
-                                              <span className="text-[9px] bg-[#64748B] text-white px-1 rounded-xs font-bold shrink-0">我</span>
-                                            )}
-                                          </div>
-                                          <div className="flex items-center gap-1 shrink-0">
-                                            <span className="font-mono text-[10.5px] font-semibold text-[#475569] bg-white/90 px-1 py-0.2 border border-[#CBD5E1]">
-                                              {top2.metricLabel}
-                                            </span>
-                                            <span className="text-[11px] font-mono font-bold text-[#1E293B]">
-                                              +{top2.estimatedRewardStones}石
-                                            </span>
-                                          </div>
-                                        </div>
-                                      ) : (
-                                        <div className="p-2 border border-dashed border-[#CBD5E1] text-[10.5px] text-[#94A3B8] flex items-center justify-between italic bg-white/40">
-                                          <span>🥈 榜眼虚位以待</span>
-                                          <span className="font-mono text-[10px]">待登榜 (25%)</span>
-                                        </div>
-                                      )}
-
-                                      {/* #3 探花 */}
-                                      {top3 ? (
-                                        <div
-                                          className={`p-2 border flex items-center justify-between gap-1.5 shadow-2xs ${
-                                            top3.isPlayer
-                                              ? "bg-[#FAF5F0] border-[#8D6E63] ring-1 ring-[#8D6E63]"
-                                              : "bg-gradient-to-r from-[#FAF6F0] to-[#EFE4D8] border-[#D7CCC8]"
-                                          }`}
-                                        >
-                                          <div className="flex items-center gap-1.5 min-w-0">
-                                            <span className="w-4 h-4 rounded-full bg-[#8D6E63] text-white font-bold text-[10px] flex items-center justify-center shrink-0">
-                                              3
-                                            </span>
-                                            <Medal className="w-3 h-3 text-[#8D6E63] shrink-0" />
-                                            <span className="text-xs font-bold text-[#3E2723] truncate max-w-[80px]" title={top3.daoName}>
-                                              {trDaoName(top3.daoName, lang)}
-                                            </span>
-                                            {top3.isPlayer && (
-                                              <span className="text-[9px] bg-[#8D6E63] text-white px-1 rounded-xs font-bold shrink-0">我</span>
-                                            )}
-                                          </div>
-                                          <div className="flex items-center gap-1 shrink-0">
-                                            <span className="font-mono text-[10.5px] font-semibold text-[#5D4037] bg-white/90 px-1 py-0.2 border border-[#D7CCC8]">
-                                              {top3.metricLabel}
-                                            </span>
-                                            <span className="text-[11px] font-mono font-bold text-[#3E2723]">
-                                              +{top3.estimatedRewardStones}石
-                                            </span>
-                                          </div>
-                                        </div>
-                                      ) : (
-                                        <div className="p-2 border border-dashed border-[#D7CCC8] text-[10.5px] text-[#A1887F] flex items-center justify-between italic bg-white/40">
-                                          <span>🥉 探花虚位以待</span>
-                                          <span className="font-mono text-[10px]">待登榜 (15%)</span>
-                                        </div>
-                                      )}
-                                    </div>
-
-                                    {/* 3. 第 4 名及后续道友（多人平滑滚动兼容） */}
-                                    {remaining.length > 0 && (
-                                      <div className="border-t border-[#C8AA72]/30 pt-1.5 space-y-1">
-                                        <div className="flex items-center justify-between text-[10.5px] text-[#718F89] px-0.5">
-                                          <span>{t("天榜列席道友", "Competing Cultivators")} ({remaining.length}{t("位", "")})</span>
-                                          <span>{t("第4席享10%周俸 · 余位蓄势", "Rank 4 gets 10%")}</span>
-                                        </div>
-                                        <div className="max-h-[110px] overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                                          {remaining.map((e) => (
-                                            <div
-                                              key={e.subAccountId}
-                                              className={`px-2 py-1 text-xs flex items-center justify-between gap-1 border ${
-                                                e.isPlayer
-                                                  ? "bg-[#FAF6EC] border-[#C8AA72] text-[#594119] font-bold"
-                                                  : "bg-white/60 border-[#C8AA72]/20 text-[#476660]"
-                                              }`}
-                                            >
-                                              <div className="flex items-center gap-1.5 min-w-0">
-                                                <span className="font-mono text-[11px] text-[#8C7A58] font-bold w-4 shrink-0">#{e.rank}</span>
-                                                <span className="truncate max-w-[110px]" title={e.daoName}>{trDaoName(e.daoName, lang)}</span>
-                                                {e.isPlayer && (
-                                                  <span className="text-[9px] bg-[#C8AA72] text-white px-1 py-0.2 rounded-xs font-bold shrink-0">我</span>
-                                                )}
-                                              </div>
-                                              <div className="flex items-center gap-1 shrink-0">
-                                                <span className="font-mono text-[10.5px] font-bold text-[#8A6828] bg-[#FAF2DE]/95 px-1 py-0.2 border border-[#C8AA72]/40">
-                                                  {e.metricLabel}
-                                                </span>
-                                                <span className="text-[#2E6B5E] font-mono font-semibold tabular-nums text-[11px]">
-                                                  {e.estimatedRewardStones > 0 ? `+${e.estimatedRewardStones}石` : t("候榜", "-")}
-                                                </span>
-                                              </div>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-                                  </>
-                                )}
+                              <div className="flex items-center justify-between gap-2 text-[10.5px] text-[#5C7A74] mt-1 whitespace-nowrap">
+                                <span className="truncate">{board.sub}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setBoardViewTab(board.id)}
+                                  className="text-[#8A6828] hover:text-[#593F14] font-bold underline shrink-0"
+                                >
+                                  {t(`在榜 ${board.entries.length} 人 · 金阶详情 →`, `${board.entries.length} Ranked · Podium →`)}
+                                </button>
                               </div>
                             </div>
 
-                            {/* 4. 底部图钉：若当前道友在三甲之外，固定展示自身排名与差距 */}
-                            {playerEntry && playerEntry.rank > 3 && (
-                              <div className="mt-2 px-2.5 py-1 bg-[#FAF6EC] border border-[#C8AA72] text-xs font-serif text-[#594119] flex items-center justify-between shadow-2xs">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="w-2 h-2 rounded-full bg-[#B8860B] animate-pulse" />
-                                  <span>{t("贫道当前位次", "Your Standing")}: <strong className="font-bold text-[#8A5A12]">第 {playerEntry.rank} 名</strong></span>
+                            {/* 2. 表格列头 (12列严格网格对齐) */}
+                            <div className="grid grid-cols-12 items-center h-6 px-2.5 bg-[#162925] text-[#E5D2AB] text-[10px] font-serif whitespace-nowrap">
+                              <div className="col-span-3">{t("天榜席位", "Rank")}</div>
+                              <div className="col-span-4">{t("上榜道号", "Cultivator")}</div>
+                              <div className="col-span-2 text-center">{board.metricName}</div>
+                              <div className="col-span-3 text-right">{t("预计周俸", "Reward")}</div>
+                            </div>
+
+                            {/* 3. 前四席标准定高行 (每行严格 h-10 = 40px，杜绝参差不齐与文字折行) */}
+                            <div className="divide-y divide-[#C8AA72]/25">
+                              {[0, 1, 2, 3].map((seatIdx) => {
+                                const entry = board.entries[seatIdx];
+                                const meta = seatMeta[seatIdx];
+                                return (
+                                  <div
+                                    key={seatIdx}
+                                    className={`grid grid-cols-12 items-center h-10 px-2.5 text-xs whitespace-nowrap transition ${meta.rowBg} ${
+                                      entry?.isPlayer ? "ring-1 ring-inset ring-[#D97706]" : ""
+                                    }`}
+                                  >
+                                    {/* 列1：席位徽章 */}
+                                    <div className="col-span-3 flex items-center">
+                                      <span
+                                        className={`px-1.5 py-0.5 text-[10px] font-bold rounded-xs leading-none ${
+                                          entry ? meta.badgeStyle : "bg-stone-200 text-stone-500"
+                                        }`}
+                                      >
+                                        {lang === "en" ? meta.badgeEn : meta.badgeZh}
+                                      </span>
+                                    </div>
+
+                                    {/* 列2：玩家道号 */}
+                                    <div className="col-span-4 flex items-center gap-1 min-w-0 pr-1">
+                                      {entry ? (
+                                        <>
+                                          <span
+                                            className="font-bold text-[#253D39] truncate text-xs"
+                                            title={entry.daoName}
+                                          >
+                                            {trDaoName(entry.daoName, lang)}
+                                          </span>
+                                          {entry.isPlayer && (
+                                            <span className="px-1 py-0.2 bg-[#B8860B] text-white text-[9px] font-bold leading-none shrink-0">
+                                              {t("我", "ME")}
+                                            </span>
+                                          )}
+                                        </>
+                                      ) : (
+                                        <span className="text-[11px] text-[#94A8A4] italic">
+                                          {t("虚位以待", "Empty Seat")}
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* 列3：对应榜单分数 */}
+                                    <div className="col-span-2 text-center">
+                                      {entry ? (
+                                        <span className="inline-block font-mono text-[10.5px] font-bold px-1.5 py-0.5 bg-white/95 border border-[#C8AA72]/50 text-[#594119] leading-none">
+                                          {entry.metricLabel}
+                                        </span>
+                                      ) : (
+                                        <span className="font-mono text-[10px] text-[#A2B5B1]">
+                                          {t("待登榜", "—")}
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* 列4：分润灵石 */}
+                                    <div className="col-span-3 text-right font-mono">
+                                      {entry ? (
+                                        <span className="font-bold text-[#14532D] text-xs tabular-nums">
+                                          +{entry.estimatedRewardStones}{t("石", "S")}
+                                          <span className="text-[9.5px] text-[#785412] ml-0.5">
+                                            ({entry.sharePct}%)
+                                          </span>
+                                        </span>
+                                      ) : (
+                                        <span className="text-[10px] text-[#8FA6A1]">
+                                          {t(`分润 ${meta.shareDefault}%`, `${meta.shareDefault}% Share`)}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {/* 4. 第5名及后续多人平滑滚动区 / 玩家自身位次图钉 */}
+                            {extraEntries.length > 0 && (
+                              <div className="border-t border-[#C8AA72]/35 bg-[#FAF6EC]/80 px-2.5 py-1.5">
+                                <div className="max-h-[76px] overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                                  {extraEntries.map((e) => (
+                                    <div
+                                      key={e.subAccountId}
+                                      className="grid grid-cols-12 items-center h-7 px-1.5 text-[11px] bg-white/80 border border-[#C8AA72]/25 whitespace-nowrap"
+                                    >
+                                      <span className="col-span-3 font-mono font-bold text-[#786646]">
+                                        #{e.rank} {t("候补", "Waitlist")}
+                                      </span>
+                                      <span className="col-span-4 truncate font-semibold text-[#253D39]">
+                                        {trDaoName(e.daoName, lang)}
+                                      </span>
+                                      <span className="col-span-2 text-center font-mono text-[#8A6828]">
+                                        {e.metricLabel}
+                                      </span>
+                                      <span className="col-span-3 text-right font-mono text-[#688580]">
+                                        {t("蓄势冲榜", "Competing")}
+                                      </span>
+                                    </div>
+                                  ))}
                                 </div>
-                                <span className="font-mono text-[11px] text-[#8A6828] font-bold">{playerEntry.metricLabel}</span>
-                                <span className="font-mono text-[11px] text-[#2E6B5E] font-bold">
-                                  {playerEntry.estimatedRewardStones > 0 ? `+${playerEntry.estimatedRewardStones}石` : t("蓄势待发", "Pending")}
+                              </div>
+                            )}
+
+                            {playerEntry && playerEntry.rank > 4 && (
+                              <div className="px-2.5 py-1 bg-[#162925] text-[#F2CE85] text-[11px] font-serif flex items-center justify-between whitespace-nowrap">
+                                <span>
+                                  {t("贫道当前位次", "Your Rank")}: <strong>#{playerEntry.rank}</strong>
                                 </span>
+                                <span className="font-mono">{playerEntry.metricLabel}</span>
                               </div>
                             )}
                           </div>
