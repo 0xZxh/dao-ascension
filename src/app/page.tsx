@@ -264,6 +264,7 @@ export default function JadeXianxiaH5Game() {
       | "FORGE"
       | "BATTLE"
       | "ARENA"
+      | "HEAL"
       | "SETTLE"
       | "TRANSFER"
       | "CREATE"
@@ -329,7 +330,7 @@ export default function JadeXianxiaH5Game() {
     titleEn: string;
     detailZh: string;
     detailEn: string;
-    missingKey: "stones" | "iron" | "meteor" | "seeds" | "other";
+    missingKey: "stones" | "iron" | "meteor" | "seeds" | "pills" | "other";
     actionLabelZh?: string;
     actionLabelEn?: string;
     onQuickResolve?: () => void;
@@ -518,7 +519,7 @@ export default function JadeXianxiaH5Game() {
     }
   }, [signedAccountId, fetchSnapshot]);
 
-  // 灵田植物实时倒计时与成熟判定 (每秒本地驱动，零冗余网络开销)
+  // 灵田植物实时倒计时与成熟判定 + 闭关静坐挂机调息回血 (每秒本地驱动，零冗余网络开销)
   useEffect(() => {
     const timer = setInterval(() => {
       setSnapshot((prev) => {
@@ -548,12 +549,23 @@ export default function JadeXianxiaH5Game() {
           return plot;
         });
 
-        if (!hasChanges) return prev;
+        // 闭关调息·挂机自动恢复道身气血 (Idle Meditation HP Regen: 1.5% maxHp/s)
+        let hpChanged = false;
+        let currentHp = prev.cultivator.hp ?? prev.cultivator.maxHp;
+        const maxHp = prev.cultivator.maxHp || 160;
+        if (currentHp < maxHp) {
+          const hpPerSec = Math.max(2, Math.round(maxHp * 0.015));
+          currentHp = Math.min(maxHp, currentHp + hpPerSec);
+          hpChanged = true;
+        }
+
+        if (!hasChanges && !hpChanged) return prev;
         return {
           ...prev,
           cultivator: {
             ...prev.cultivator,
-            gardenPlots: updatedPlots,
+            hp: currentHp,
+            gardenPlots: hasChanges ? updatedPlots : prev.cultivator.gardenPlots,
           },
         };
       });
@@ -862,7 +874,10 @@ export default function JadeXianxiaH5Game() {
 
   // 角色解锁检查判定 (狐妖试炼第5重解锁，魔尊试炼第10重解锁)
   const checkCharacterUnlock = (charId: AvatarClass) => {
-    const highestFloor = snapshot?.cultivator?.highestFloorCleared || 0;
+    const highestFloor = Math.max(
+      snapshot?.cultivator?.highestFloorCleared || 0,
+      snapshot?.cultivator?.lifetimeHighestFloorCleared || 0
+    );
     if (charId === "fox") {
       const isUnlocked = highestFloor >= 5;
       return {
@@ -1346,6 +1361,57 @@ export default function JadeXianxiaH5Game() {
         }
       }
     }, 600);
+  };
+
+  // ==========================================================================
+  // 服用回春丹疗伤与气血调息恢复 (Manual Pill Healing & Recovery)
+  // ==========================================================================
+  const handleConsumeHealingPill = async () => {
+    if (!snapshot?.cultivator) return;
+    const c = snapshot.cultivator;
+    const curHp = c.hp ?? c.maxHp;
+    if (curHp >= c.maxHp) {
+      triggerFloatingStat(t("道身气血充盈圆满，暂无需服药！", "Life force already full!"));
+      return;
+    }
+    if ((c.inventory.healingPills || 0) <= 0) {
+      triggerInsufficientAlert({
+        titleZh: "⚠️ 回春丹不足 · 无法吞服疗伤",
+        titleEn: "⚠️ No Healing Pills in Bag",
+        detailZh:
+          "乾坤袋中回春丹已耗尽，请前往【壹·洞府灵圃】采草炼丹，或在洞府静坐挂机调息自动回血！",
+        detailEn:
+          "No healing pills in bag. Harvest herbs in garden to craft pills, or idle meditate to recover HP!",
+        missingKey: "pills",
+        actionLabelZh: "🌱 前往【洞府灵圃】采草炼制回春丹 →",
+        actionLabelEn: "🌱 Harvest Herbs to Refine Pills →",
+        onQuickResolve: () => {
+          setInsufficientAlert(null);
+          setActiveBuilding("GARDEN");
+        },
+      });
+      return;
+    }
+
+    xianxiaAudio.playPillHeal();
+    const data = await callGameApi(
+      { action: "CONSUME_HEALING_PILL" },
+      {
+        type: "HEAL",
+        id: "pill-heal",
+        textZh: "运转太虚真元吞服回春丹...",
+        textEn: "Consuming Healing Pill...",
+      }
+    );
+    if (data?.ok) {
+      const healed = data.actionResult?.healedHp || 110;
+      triggerFloatingStat(
+        t(
+          `💊 吞服回春丹 · 气血恢复 +${healed} HP！`,
+          `💊 Consumed Pill · Restored +${healed} HP!`
+        )
+      );
+    }
   };
 
   // ==========================================================================
@@ -2455,54 +2521,69 @@ export default function JadeXianxiaH5Game() {
             </div>
           </div>
 
-          {/* 右侧：5大游戏道具与属性格子 (带明显扣减/增益跳字提示) */}
+          {/* 右侧：5大游戏道具与属性格子 (带明显扣减/增益跳字提示与气血服药/挂机调息联动) */}
           <div className="grid grid-cols-5 gap-1.5 sm:gap-2 font-serif">
-            {[
-              {
-                key: "hp",
-                icon: "❤️",
-                label: t("气血", "HP"),
-                value: cultivator.maxHp,
-                color: "text-[#5FE3C8]",
-                delta: slotDeltas.hp,
-              },
-              {
-                key: "atk",
-                icon: "🗡️",
-                label: t("攻击", "ATK"),
-                value: cultivator.atk,
-                color: "text-[#F2CE85]",
-                delta: slotDeltas.atk,
-              },
-              {
-                key: "stones",
-                icon: "💎",
-                label: t("灵石", "Stones"),
-                value: cultivator.spiritStones,
-                color: "text-[#FDE68A]",
-                delta: slotDeltas.stones,
-                onClick: () => setIsRechargeModalOpen(true),
-              },
-              {
-                key: "pills",
-                icon: "💊",
-                label: t("回春丹", "Pills"),
-                value: `×${cultivator.inventory.healingPills}`,
-                color: "text-[#6EE7B7]",
-                delta: slotDeltas.pills,
-              },
-              {
-                key: "iron",
-                icon: "⛏️",
-                label: t("玄铁矿", "Ores"),
-                value: `×${cultivator.inventory.ironOres}`,
-                color: "text-[#E2E8F0]",
-                delta: slotDeltas.iron,
-              },
-            ].map((slot) => {
+            {(() => {
+              const curHp = cultivator.hp ?? cultivator.maxHp;
+              const isInjured = curHp < cultivator.maxHp;
+              return [
+                {
+                  key: "hp",
+                  icon: "❤️",
+                  label: t("气血", "HP"),
+                  value: `${curHp}/${cultivator.maxHp}`,
+                  color: isInjured ? "text-[#FCA5A5]" : "text-[#5FE3C8]",
+                  delta: slotDeltas.hp,
+                  onClick: isInjured ? handleConsumeHealingPill : undefined,
+                  badge: isInjured
+                    ? t("🧘调息中·服药", "🧘Regen·Pill")
+                    : undefined,
+                },
+                {
+                  key: "atk",
+                  icon: "🗡️",
+                  label: t("攻击", "ATK"),
+                  value: cultivator.atk,
+                  color: "text-[#F2CE85]",
+                  delta: slotDeltas.atk,
+                },
+                {
+                  key: "stones",
+                  icon: "💎",
+                  label: t("灵石", "Stones"),
+                  value: cultivator.spiritStones,
+                  color: "text-[#FDE68A]",
+                  delta: slotDeltas.stones,
+                  onClick: () => setIsRechargeModalOpen(true),
+                },
+                {
+                  key: "pills",
+                  icon: "💊",
+                  label: t("回春丹", "Pills"),
+                  value: `×${cultivator.inventory.healingPills}`,
+                  color: "text-[#6EE7B7]",
+                  delta: slotDeltas.pills,
+                  onClick: handleConsumeHealingPill,
+                  badge:
+                    isInjured && cultivator.inventory.healingPills > 0
+                      ? t("点击服药", "Use Pill")
+                      : undefined,
+                },
+                {
+                  key: "iron",
+                  icon: "⛏️",
+                  label: t("玄铁矿", "Ores"),
+                  value: `×${cultivator.inventory.ironOres}`,
+                  color: "text-[#E2E8F0]",
+                  delta: slotDeltas.iron,
+                },
+              ];
+            })().map((slot) => {
               const hasDelta = slot.delta !== undefined && slot.delta !== 0;
               const isNeg = (slot.delta || 0) < 0;
               const isMissing = missingSlotKey === slot.key;
+              const curHp = cultivator.hp ?? cultivator.maxHp;
+              const isInjured = curHp < cultivator.maxHp;
               return (
                 <div
                   key={slot.key}
@@ -2516,6 +2597,8 @@ export default function JadeXianxiaH5Game() {
                       ? isNeg
                         ? "bg-[#450A0A] border-[#F87171] ring-2 ring-[#F87171] scale-105"
                         : "bg-[#064E3B] border-[#34D399] ring-1 ring-[#34D399] scale-105"
+                      : slot.key === "hp" && isInjured
+                      ? "bg-[#2A0C0C]/90 border-[#EF4444]/60"
                       : "bg-[#0F1E1B]/90 border-[#C8AA72]/40"
                   }`}
                 >
@@ -2526,6 +2609,23 @@ export default function JadeXianxiaH5Game() {
                   <div className={`font-mono font-bold text-xs sm:text-sm tabular-nums ${slot.color}`}>
                     {slot.value}
                   </div>
+                  {slot.key === "hp" && (
+                    <div className="w-full h-1 bg-[#091412] rounded-full overflow-hidden mt-0.5 border border-[#C8AA72]/30">
+                      <div
+                        className={`h-full transition-all duration-300 ${
+                          isInjured ? "bg-gradient-to-r from-[#EF4444] to-[#F59E0B]" : "bg-[#10B981]"
+                        }`}
+                        style={{
+                          width: `${Math.min(100, Math.max(0, (curHp / (cultivator.maxHp || 1)) * 100))}%`,
+                        }}
+                      />
+                    </div>
+                  )}
+                  {slot.badge && !hasDelta && !isMissing && (
+                    <span className="absolute -bottom-3 right-0 z-30 px-1 py-0 text-[8.5px] font-serif font-bold bg-[#14532D] text-[#86EFAC] border border-[#22C55E]/60 shadow-xs animate-pulse whitespace-nowrap">
+                      {slot.badge}
+                    </span>
+                  )}
                   {isMissing && !hasDelta && (
                     <span className="absolute -bottom-3 right-0 z-30 px-1.5 py-0.2 text-[9.5px] font-serif font-extrabold bg-[#DC2626] text-white border border-[#FCA5A5] shadow-md animate-bounce whitespace-nowrap">
                       {t("⚠️不足", "⚠️LOW")}
@@ -2731,6 +2831,61 @@ export default function JadeXianxiaH5Game() {
                 </div>
               </div>
 
+              {/* 道身气血状态与服药/调息面板 (Dao Body HP Bar & Healing Controls) */}
+              {(() => {
+                const curHp = cultivator.hp ?? cultivator.maxHp;
+                const maxHp = cultivator.maxHp || 160;
+                const isInjured = curHp < maxHp;
+                const hpPct = Math.min(100, Math.max(0, Math.round((curHp / maxHp) * 100)));
+                return (
+                  <div className="w-full bg-[#112320] border border-[#C8AA72]/60 p-2 my-1.5 font-serif shadow-xs">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm leading-none">❤️</span>
+                        <span className="font-bold text-[#E5D2AB] text-xs">
+                          {t("道身气血", "Daoist Life Force")}
+                        </span>
+                        {isInjured && (
+                          <span className="text-[10px] text-[#86EFAC] bg-[#064E3B] border border-[#22C55E]/50 px-1 py-0.2 font-bold animate-pulse flex items-center gap-0.5">
+                            <span>🧘</span>
+                            <span>{t("调息回血 +1.5%/s", "Idle Regen +1.5%/s")}</span>
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`font-mono text-xs font-bold tabular-nums ${isInjured ? "text-[#FCA5A5]" : "text-[#5FE3C8]"}`}>
+                          {curHp} / {maxHp} HP ({hpPct}%)
+                        </span>
+                        {isInjured && (
+                          <button
+                            type="button"
+                            onClick={handleConsumeHealingPill}
+                            className="px-2 py-0.5 text-[10px] font-bold text-[#064E3B] bg-[#A7F3D0] hover:bg-[#6EE7B7] border border-[#059669] shadow-2xs transition flex items-center gap-1 cursor-pointer"
+                            title={t(`消耗 1 枚回春丹恢复气血 (当前拥有 ${cultivator.inventory.healingPills} 枚)`, `Use 1 Pill to Heal (${cultivator.inventory.healingPills} in bag)`)}
+                          >
+                            <span>💊</span>
+                            <span>{t("服药疗伤", "Use Pill")}</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {/* 气血条 */}
+                    <div className="mt-1 w-full h-2 bg-[#091412] border border-[#C8AA72]/40 rounded-full overflow-hidden p-[0.5px] relative shadow-inner">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 relative overflow-hidden ${
+                          isInjured
+                            ? "bg-gradient-to-r from-[#DC2626] via-[#F59E0B] to-[#10B981]"
+                            : "bg-gradient-to-r from-[#059669] via-[#10B981] to-[#34D399]"
+                        }`}
+                        style={{ width: `${hpPct}%` }}
+                      >
+                        {isInjured && <div className="absolute inset-0 bg-white/20 animate-pulse pointer-events-none" />}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* 装备槽与灵根槽 (双栏 RPG 装备框) */}
               <div className="w-full grid grid-cols-2 gap-2 mt-2 font-serif">
                 {/* 槽位1：本命佩剑 */}
@@ -2838,6 +2993,7 @@ export default function JadeXianxiaH5Game() {
                     name: t("回春丹", "Pills"),
                     count: cultivator.inventory.healingPills,
                     delta: slotDeltas.pills,
+                    onClick: handleConsumeHealingPill,
                   },
                   {
                     key: "seeds",
@@ -2856,7 +3012,10 @@ export default function JadeXianxiaH5Game() {
                   return (
                     <div
                       key={item.key}
+                      onClick={item.onClick}
                       className={`relative p-1.5 border transition-all ${
+                        item.onClick ? "cursor-pointer hover:border-[#6EE7B7]" : ""
+                      } ${
                         isMissing
                           ? "bg-[#581010] border-[#F87171] ring-2 ring-[#EF4444] animate-pulse scale-105"
                           : hasDelta
@@ -4685,7 +4844,7 @@ export default function JadeXianxiaH5Game() {
                 ? currentLog.attackerName.includes(cultivator.daoName)
                   ? currentLog.attackerHpAfter
                   : currentLog.defenderHpAfter
-                : cultivator.maxHp;
+                : (cultivator.hp ?? cultivator.maxHp);
 
               const displayOpponentHp = currentLog
                 ? currentLog.attackerName.includes(activePvpOpponent.daoName)

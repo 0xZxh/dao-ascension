@@ -324,7 +324,9 @@ export interface CultivatorNftAccount {
   equippedArtifact: ForgedArtifact | null;
   gardenPlots: GardenPlotState[];
   highestFloorCleared: number;
+  lifetimeHighestFloorCleared?: number;
   herbsHarvestedCount: number;
+  lastHpRegenTimestamp?: string;
   scores: {
     slayerScore: number;
     alchemyScore: number;

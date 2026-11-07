@@ -5,6 +5,7 @@ import {
   claimAllCelestialMails,
   claimCelestialMailAttachment,
   clearTreasuryGenesisFund,
+  consumeHealingPill,
   createCustomCultivatorCharacter,
   equipArtifactToCultivator,
   forgeImmortalArtifact,
@@ -161,6 +162,10 @@ export async function POST(req: NextRequest) {
       }
       case "CLEAR_GENESIS_FUND": {
         actionResult = clearTreasuryGenesisFund(accountId);
+        break;
+      }
+      case "CONSUME_HEALING_PILL": {
+        actionResult = consumeHealingPill(accountId);
         break;
       }
       default:

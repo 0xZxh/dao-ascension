@@ -680,7 +680,13 @@ export function recalculateCultivatorDerivedStats(
   cultivator.maxHp = Math.round(
     (cultivator.baseHp + cultivator.herbBonusHp) * hpMultiplier
   );
-  cultivator.hp = cultivator.maxHp;
+  
+  // 保持道身当前真实血量，绝不强制重置为满血 (战斗扣血、用药回血、挂机调息平滑承接)
+  if (typeof cultivator.hp !== "number" || cultivator.hp <= 0) {
+    cultivator.hp = cultivator.maxHp;
+  } else {
+    cultivator.hp = Math.min(cultivator.hp, cultivator.maxHp);
+  }
 
   cultivator.atk = Math.round(
     (cultivator.baseAtk + cultivator.weaponBonusAtk) * atkMultiplier
@@ -690,7 +696,104 @@ export function recalculateCultivatorDerivedStats(
     ? cultivator.equippedArtifact.critRatePct
     : 0;
   cultivator.critRatePct = Math.min(75, 10 + weaponCrit + root.critBonusPct);
-  cultivator.scores.blacksmithScore = cultivator.maxHp + cultivator.atk * 4;
+  if ((cultivator.scores.blacksmithScore || 0) > 0) {
+    cultivator.scores.blacksmithScore = cultivator.maxHp + cultivator.atk * 4;
+  }
+}
+
+/**
+ * 闭关静坐·挂机自动调息恢复道身气血 (Idle Meditation HP Regen)
+ * 每秒恢复 1.5% 最大气血（至少 2 点/秒），无需玩家守候，自然回满
+ */
+export function updateIdleMeditationHpRegen(
+  cultivator: CultivatorNftAccount
+): number {
+  const now = Date.now();
+  const maxHp = cultivator.maxHp || 160;
+
+  if (cultivator.hp === undefined || cultivator.hp === null) {
+    cultivator.hp = maxHp;
+    cultivator.lastHpRegenTimestamp = new Date(now).toISOString();
+    return 0;
+  }
+
+  if (cultivator.hp >= maxHp) {
+    cultivator.hp = maxHp;
+    cultivator.lastHpRegenTimestamp = new Date(now).toISOString();
+    return 0;
+  }
+
+  const lastTime = cultivator.lastHpRegenTimestamp
+    ? new Date(cultivator.lastHpRegenTimestamp).getTime()
+    : now;
+  const elapsedMs = Math.max(0, now - lastTime);
+  const elapsedSec = Math.floor(elapsedMs / 1000);
+
+  if (elapsedSec <= 0) {
+    return 0;
+  }
+
+  const hpPerSec = Math.max(2, Math.round(maxHp * 0.015));
+  const regenHp = Math.min(maxHp - cultivator.hp, hpPerSec * elapsedSec);
+
+  cultivator.hp += regenHp;
+  const remainderMs = elapsedMs % 1000;
+  cultivator.lastHpRegenTimestamp = new Date(now - remainderMs).toISOString();
+
+  return regenHp;
+}
+
+/**
+ * 吞服回春丹立即恢复道身气血 (Manual Pill Healing)
+ * 消耗 1 枚回春丹，按 pillHealPower 瞬时恢复气血
+ */
+export function consumeHealingPill(accountId?: string): {
+  cultivator: CultivatorNftAccount;
+  healedHp: number;
+  remainingPills: number;
+  receipt: SignedSessionActionReceipt;
+} {
+  const store = getStore(accountId);
+  const { cultivator } = store;
+
+  updateIdleMeditationHpRegen(cultivator);
+
+  if (cultivator.hp >= cultivator.maxHp) {
+    throw new Error("道身气血充盈圆满，暂无需吞服回春丹！");
+  }
+
+  if ((cultivator.inventory.healingPills || 0) <= 0) {
+    throw new Error(
+      "乾坤袋中回春丹已告罄！可前往灵田种植采药炼制，或静坐闭关挂机调息恢复气血。"
+    );
+  }
+
+  const healPower = cultivator.inventory.pillHealPower || 110;
+  const actualHeal = Math.min(cultivator.maxHp - cultivator.hp, healPower);
+
+  cultivator.inventory.healingPills -= 1;
+  cultivator.hp += actualHeal;
+  cultivator.lastHpRegenTimestamp = new Date().toISOString();
+
+  const receipt = recordSessionAction(
+    store,
+    "consume_healing_pill",
+    `${cultivator.daoName} 吞服【回春丹】，药力化入四肢百骸，瞬间恢复 +${actualHeal} 点气血（气血：${cultivator.hp}/${cultivator.maxHp}，余丹：${cultivator.inventory.healingPills} 枚）`,
+    {
+      pill_consumed: 1,
+      healed_hp: actualHeal,
+      current_hp: cultivator.hp,
+      max_hp: cultivator.maxHp,
+      remaining_pills: cultivator.inventory.healingPills,
+    }
+  );
+
+  return {
+    cultivator,
+    healedHp: actualHeal,
+    remainingPills: cultivator.inventory.healingPills,
+    receipt,
+  };
 }
 
 export function recordFinancialEntry(
@@ -952,6 +1055,9 @@ function buildBoardEntries(
   }>,
   boardPoolStones: number
 ): LeaderboardEntry[] {
+  if (!entriesRaw || entriesRaw.length === 0) {
+    return [];
+  }
   const sorted = [...entriesRaw].sort((a, b) => b.score - a.score);
   const count = sorted.length;
   let weights: number[];
@@ -1032,70 +1138,82 @@ function recalculateLeaderboards(store: InternalStore): void {
     }
   }
 
-  // 1. 诛魔天榜：看【云海试炼通关层数】 (highestFloorCleared)
+  // 1. 诛魔天榜：看【云海试炼通关层数】 (需本周至少通过第 1 层方可上榜)
   treasury.boards.slayerBoard = buildBoardEntries(
-    candidateCultivators.map((c) => {
-      const floors = c.highestFloorCleared || 0;
-      c.scores.slayerScore = floors;
-      return {
-        daoName: c.daoName,
-        subAccountId: c.boundSubAccountId,
-        isPlayer: c.boundSubAccountId === cultivator.boundSubAccountId,
-        avatarClass: c.avatarClass || "sword",
-        score: floors,
-        metricLabel: floors > 0 ? `第 ${floors} 层` : "0 层",
-      };
-    }),
+    candidateCultivators
+      .filter((c) => (c.highestFloorCleared || 0) > 0)
+      .map((c) => {
+        const floors = c.highestFloorCleared || 0;
+        c.scores.slayerScore = floors;
+        return {
+          daoName: c.daoName,
+          subAccountId: c.boundSubAccountId,
+          isPlayer: c.boundSubAccountId === cultivator.boundSubAccountId,
+          avatarClass: c.avatarClass || "sword",
+          score: floors,
+          metricLabel: `第 ${floors} 层`,
+        };
+      }),
     slayerPool
   );
 
-  // 2. 百草药圣榜：看【种植收获灵草株数】 (herbsHarvestedCount)
+  // 2. 百草药圣榜：看【种植收获灵草株数】 (需本周至少收获 1 株灵草方可上榜)
   treasury.boards.alchemyBoard = buildBoardEntries(
-    candidateCultivators.map((c) => {
-      const harvested = c.herbsHarvestedCount || 0;
-      c.scores.alchemyScore = harvested;
-      return {
-        daoName: c.daoName,
-        subAccountId: c.boundSubAccountId,
-        isPlayer: c.boundSubAccountId === cultivator.boundSubAccountId,
-        avatarClass: c.avatarClass || "saintess",
-        score: harvested,
-        metricLabel: `收获 ${harvested} 株`,
-      };
-    }),
+    candidateCultivators
+      .filter((c) => (c.herbsHarvestedCount || 0) > 0)
+      .map((c) => {
+        const harvested = c.herbsHarvestedCount || 0;
+        c.scores.alchemyScore = harvested;
+        return {
+          daoName: c.daoName,
+          subAccountId: c.boundSubAccountId,
+          isPlayer: c.boundSubAccountId === cultivator.boundSubAccountId,
+          avatarClass: c.avatarClass || "saintess",
+          score: harvested,
+          metricLabel: `收获 ${harvested} 株`,
+        };
+      }),
     alchemyPool
   );
 
-  // 3. 神工天匠榜：看【道身综合战力】 (气血 + 攻击 * 4)
+  // 3. 神工天匠榜：看【道身天工铸剑功勋】 (需本周开炉铸剑有功勋方可上榜)
   treasury.boards.blacksmithBoard = buildBoardEntries(
-    candidateCultivators.map((c) => {
-      const totalPower = (c.maxHp || 160) + (c.atk || 36) * 4;
-      c.scores.blacksmithScore = totalPower;
-      return {
-        daoName: c.daoName,
-        subAccountId: c.boundSubAccountId,
-        isPlayer: c.boundSubAccountId === cultivator.boundSubAccountId,
-        avatarClass: c.avatarClass || "venerable",
-        score: totalPower,
-        metricLabel: `${totalPower} 战力`,
-      };
-    }),
+    candidateCultivators
+      .filter((c) => (c.scores.blacksmithScore || 0) > 0)
+      .map((c) => {
+        const forgePower = c.scores.blacksmithScore || 0;
+        return {
+          daoName: c.daoName,
+          subAccountId: c.boundSubAccountId,
+          isPlayer: c.boundSubAccountId === cultivator.boundSubAccountId,
+          avatarClass: c.avatarClass || "venerable",
+          score: forgePower,
+          metricLabel: `${forgePower} 战力功勋`,
+        };
+      }),
     blacksmithPool
   );
 
-  // 4. 问鼎论剑榜：看【论剑演武 ELO 积分】 (duelScore)
+  // 4. 问鼎论剑榜：看【论剑演武 ELO 积分】 (需本周参与过论剑演武方可上榜)
   treasury.boards.duelBoard = buildBoardEntries(
-    candidateCultivators.map((c) => {
-      const duelScore = c.scores.duelScore || 1000;
-      return {
-        daoName: c.daoName,
-        subAccountId: c.boundSubAccountId,
-        isPlayer: c.boundSubAccountId === cultivator.boundSubAccountId,
-        avatarClass: c.avatarClass || "demon",
-        score: duelScore,
-        metricLabel: `${duelScore} 分`,
-      };
-    }),
+    candidateCultivators
+      .filter(
+        (c) =>
+          (c.scores.duelWins || 0) > 0 ||
+          (c.scores.duelLosses || 0) > 0 ||
+          (c.scores.duelScore || 1000) !== 1000
+      )
+      .map((c) => {
+        const duelScore = c.scores.duelScore || 1000;
+        return {
+          daoName: c.daoName,
+          subAccountId: c.boundSubAccountId,
+          isPlayer: c.boundSubAccountId === cultivator.boundSubAccountId,
+          avatarClass: c.avatarClass || "demon",
+          score: duelScore,
+          metricLabel: `${duelScore} 分`,
+        };
+      }),
     duelPool
   );
 }
@@ -1613,8 +1731,11 @@ export function challengeSecretRealmFloor(
   treasury.totalTreasurySpiritStones += floorCfg.entryFeeStones;
   treasury.feeBreakdown.realmEntryFeesStones += floorCfg.entryFeeStones;
 
-  // Start battle with full Max HP
-  cultivator.hp = cultivator.maxHp;
+  // 战斗前调息回血计算，绝不强制重置满血，沿用道身当前真实气血
+  updateIdleMeditationHpRegen(cultivator);
+  if (!cultivator.hp || cultivator.hp <= 0) {
+    cultivator.hp = Math.max(1, Math.round(cultivator.maxHp * 0.15));
+  }
   let playerHp = cultivator.hp;
   let monsterHp = floorCfg.monsterHp;
   let pillsConsumed = 0;
@@ -1695,6 +1816,8 @@ export function challengeSecretRealmFloor(
   let rewards: CombatBattleReport["rewards"] | undefined;
 
   if (victory) {
+    // 胜利：道身保留战斗结束后的剩余气血，不重置满血！
+    cultivator.hp = Math.max(1, playerHp);
     cultivator.exp += floorCfg.rewardExp;
     cultivator.inventory.ironOres += floorCfg.dropIronOres;
     cultivator.inventory.meteorOres += floorCfg.dropMeteorOres;
@@ -1702,6 +1825,10 @@ export function challengeSecretRealmFloor(
       (cultivator.inventory.seedBag[floorCfg.dropSeedTier] || 0) + 1;
     cultivator.highestFloorCleared = Math.max(
       cultivator.highestFloorCleared,
+      floorCfg.floor
+    );
+    cultivator.lifetimeHighestFloorCleared = Math.max(
+      cultivator.lifetimeHighestFloorCleared || 0,
       floorCfg.floor
     );
     cultivator.scores.slayerScore = cultivator.highestFloorCleared;
@@ -1718,9 +1845,16 @@ export function challengeSecretRealmFloor(
       realmBreakthrough,
     };
   } else {
-    // Restore to 50% HP back at cave abode after defeat
-    cultivator.hp = Math.round(cultivator.maxHp * 0.5);
+    // 战败：重伤退回洞府，保留少量气血 (15% 或剩余血量)，需服用回春丹或挂机调息恢复
+    cultivator.hp = Math.max(
+      1,
+      Math.min(
+        playerHp > 0 ? playerHp : Math.round(cultivator.maxHp * 0.15),
+        cultivator.maxHp
+      )
+    );
   }
+  cultivator.lastHpRegenTimestamp = new Date().toISOString();
 
   recalculateLeaderboards(store);
 
@@ -1852,7 +1986,10 @@ export function challengePvpDuel(params: {
   const opponent =
     opponents.find((o) => o.id === params.opponentId) || opponents[1];
 
-  cultivator.hp = cultivator.maxHp;
+  updateIdleMeditationHpRegen(cultivator);
+  if (!cultivator.hp || cultivator.hp <= 0) {
+    cultivator.hp = Math.max(1, Math.round(cultivator.maxHp * 0.15));
+  }
   let playerHp = cultivator.hp;
   let opponentHp = opponent.hp;
   let pillsConsumed = 0;
@@ -1973,7 +2110,18 @@ export function challengePvpDuel(params: {
     checkRealmProgression(cultivator);
   }
 
-  cultivator.hp = playerHp;
+  if (isVictory) {
+    cultivator.hp = Math.max(1, playerHp);
+  } else {
+    cultivator.hp = Math.max(
+      1,
+      Math.min(
+        playerHp > 0 ? playerHp : Math.round(cultivator.maxHp * 0.15),
+        cultivator.maxHp
+      )
+    );
+  }
+  cultivator.lastHpRegenTimestamp = new Date().toISOString();
 
   recalculateLeaderboards(store);
 
@@ -2235,6 +2383,34 @@ export async function settleWeeklyHeavenLeaderboards(params?: {
 
   cultivator.inbox.unshift(settlementMail);
   cultivator.unreadMailCount = cultivator.inbox.filter((m) => !m.isRead).length;
+
+  // 3. 【每周发榜后积分重置】：云海试炼层数、采药株数、论剑积分、铸剑功勋全员归零，新周需重新打榜争雄！
+  const allAccountStoresToReset = globalForXianxia.__daoAscensionAccountMap
+    ? Object.values(globalForXianxia.__daoAscensionAccountMap)
+    : [store];
+
+  for (const accStore of allAccountStoresToReset) {
+    if (accStore?.cultivator) {
+      const c = accStore.cultivator;
+      // 永久记录历史最高试炼通关层数（保障九尾灵狐、太古魔尊皮肤解锁不丢失）
+      c.lifetimeHighestFloorCleared = Math.max(
+        c.lifetimeHighestFloorCleared || 0,
+        c.highestFloorCleared || 0
+      );
+      // 重置本周周榜参与进度
+      c.highestFloorCleared = 0;
+      c.scores.slayerScore = 0;
+      c.herbsHarvestedCount = 0;
+      c.scores.alchemyScore = 0;
+      c.scores.duelScore = 1000;
+      c.scores.duelWins = 0;
+      c.scores.duelLosses = 0;
+      c.scores.blacksmithScore = 0;
+    }
+  }
+
+  // 重置后重新计算榜单，全员回归起跑线，榜位重置为虚位以待
+  recalculateLeaderboards(store);
 
   store.elderCounsel = {
     ...store.elderCounsel,
@@ -2556,6 +2732,8 @@ export async function getXianxiaWorldSnapshot(
 ): Promise<XianxiaWorldSnapshot> {
   const normalizedId = (targetAccountId || "qingyun-master.testnet").trim();
   const store = getStore(normalizedId);
+  // 闭关静坐·挂机自动调息恢复道身气血
+  updateIdleMeditationHpRegen(store.cultivator);
   // 更新灵田生长倒计时
   updatePlotsGrowthStatus(store.cultivator.gardenPlots);
   // 自动检测东八区周日 24:00 发榜时机（真·定时全自动发函，无需玩家手动干预）
