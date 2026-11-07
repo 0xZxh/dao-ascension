@@ -3,8 +3,8 @@
 /**
  * 仙途寻道 · 国风五声音阶合成器与游戏音效引擎 (Web Audio API)
  * 零外部音频文件依赖，纯浏览器原生实时合成：
- * 1. 古琴/古筝五声音阶 (宫商角徵羽) 洞天背景仙乐 (BGM)
- * 2. 点击、播种、灵泉、炼丹、铸剑打铁、飞剑斩击、暴击、受击、道具扣减等游戏音效 (SFX)
+ * 1. 《御剑乘风·仙山晴雪》欢快轻灵仙侠背景音乐 (古筝/琵琶清脆轮指 + 竹笛颤音 + 玉磬轻拍，~142 BPM)
+ * 2. 点击、播种、灵泉、炼丹、铸剑打铁、飞剑斩击、暴击、受击、道具扣减、道具不足警示等全套游戏音效 (SFX)
  */
 
 class XianxiaSoundEngine {
@@ -14,26 +14,58 @@ class XianxiaSoundEngine {
   private bgmTimer: ReturnType<typeof setInterval> | null = null;
   private bgmStep: number = 0;
 
-  // 中国传统五声音阶频率 (C4 D4 E4 G4 A4 C5 D5 E5 G5 A5)
+  // 明亮欢快五声音阶频率表 (宫商角徵羽：C4 ~ E6)
+  // 0:C4, 1:D4, 2:E4, 3:G4, 4:A4, 5:C5, 6:D5, 7:E5, 8:G5, 9:A5, 10:C6, 11:D6, 12:E6
   private readonly PENTATONIC_NOTES = [
-    261.63, // 宫 C4
-    293.66, // 商 D4
-    329.63, // 角 E4
-    392.0,  // 徵 G4
-    440.0,  // 羽 A4
-    523.25, // 宫 C5
-    587.33, // 商 D5
-    659.25, // 角 E5
-    783.99, // 徵 G5
-    880.0,  // 羽 A5
+    261.63,  // 0: 宫 C4
+    293.66,  // 1: 商 D4
+    329.63,  // 2: 角 E4
+    392.00,  // 3: 徵 G4
+    440.00,  // 4: 羽 A4
+    523.25,  // 5: 宫 C5
+    587.33,  // 6: 商 D5
+    659.25,  // 7: 角 E5
+    783.99,  // 8: 徵 G5
+    880.00,  // 9: 羽 A5
+    1046.50, // 10: 宫 C6
+    1174.66, // 11: 商 D6
+    1318.51, // 12: 角 E6
   ];
 
-  // 舒缓古琴曲谱序列 (索引对应 PENTATONIC_NOTES)
-  private readonly MELODY_PATTERN = [
-    4, 5, 7, 5, 4, 3, 2, 3,
-    5, 7, 8, 7, 5, 4, 2, 0,
-    2, 3, 4, 7, 5, 4, 3, 1,
-    2, 4, 5, 3, 2, 1, 0, 0,
+  // 《御剑乘风》32 拍欢快仙侠主旋律 (-1 表示休止或延音，其余对应 PENTATONIC_NOTES 索引)
+  private readonly LIVELY_MELODY: number[] = [
+    // 第一乐句：御剑出云（欢快上扬）
+    5, 6, 7, 8,   9, 8, 7, 5,
+    6, 7, 8, 6,   5, -1, 3, 4,
+    // 第二乐句：仙山采薇（灵动跳跃）
+    5, 7, 8, 9,   10, 9, 8, 7,
+    8, 9, 10, 8,  7, -1, 8, 9,
+    // 第三乐句：碧水流泉（高音清脆花指）
+    10, 11, 12, 10, 9, 8, 7, 8,
+    9, 8, 7, 5,   6, 7, 6, 3,
+    // 第四乐句：归宗论道（圆满回落）
+    4, 5, 7, 8,   9, 10, 8, 7,
+    6, 7, 5, 3,   5, -1, 5, -1,
+  ];
+
+  // 低音伴奏根音序列 (每 4 个八分音符切换一次和声根音)
+  private readonly BASS_PROGRESSION: number[] = [
+    261.63, // C4
+    261.63, // C4
+    293.66, // D4
+    196.00, // G3
+    261.63, // C4
+    220.00, // A3
+    293.66, // D4
+    196.00, // G3
+    220.00, // A3
+    196.00, // G3
+    261.63, // C4
+    293.66, // D4
+    220.00, // A3
+    196.00, // G3
+    261.63, // C4
+    261.63, // C4
   ];
 
   private ensureContext(): AudioContext | null {
@@ -74,27 +106,61 @@ class XianxiaSoundEngine {
     return this.bgmEnabled;
   }
 
+  /**
+   * 启动轻快仙侠背景音乐《御剑乘风》 (~142 BPM，210ms 八分音符律动)
+   */
   public startBgm(): void {
     const ctx = this.ensureContext();
     if (!ctx) return;
     this.bgmEnabled = true;
     if (this.bgmTimer) clearInterval(this.bgmTimer);
 
-    // 立即弹奏第一声古琴泛音
-    this.playGuqinNote(this.PENTATONIC_NOTES[4], 1.8, 0.045);
+    // 立即弹奏欢快起手滑音和弦
+    this.playGuzhengArpeggio([523.25, 659.25, 783.99, 1046.5], 0.035);
 
     this.bgmTimer = setInterval(() => {
       if (!this.bgmEnabled) return;
-      const noteIdx = this.MELODY_PATTERN[this.bgmStep % this.MELODY_PATTERN.length];
-      const freq = this.PENTATONIC_NOTES[noteIdx];
-      this.playGuqinNote(freq, 2.2, 0.04);
 
-      // 每 4 拍伴奏一声低八度钟磬根音
-      if (this.bgmStep % 4 === 0) {
-        this.playGuqinNote(freq * 0.5, 3.2, 0.03);
+      const step = this.bgmStep % this.LIVELY_MELODY.length;
+      const noteIdx = this.LIVELY_MELODY[step];
+
+      // 1. 主旋律：清脆古筝/柳琴拨弦
+      if (noteIdx >= 0) {
+        const freq = this.PENTATONIC_NOTES[noteIdx];
+        const isAccent = step % 4 === 0;
+        this.playPluckNote(freq, isAccent ? 0.55 : 0.36, isAccent ? 0.048 : 0.036);
+
+        // 逢乐句高潮点叠加竹笛清亮长音或古筝花指装饰音
+        if (step % 8 === 4 && noteIdx >= 8) {
+          this.playDiziFluteNote(freq, 0.55, 0.024);
+        } else if (step % 8 === 0) {
+          // 轻快倚音装饰
+          const graceIdx = Math.min(this.PENTATONIC_NOTES.length - 1, noteIdx + 1);
+          setTimeout(() => {
+            if (this.bgmEnabled) {
+              this.playPluckNote(this.PENTATONIC_NOTES[graceIdx], 0.22, 0.022);
+            }
+          }, 95);
+        }
       }
+
+      // 2. 律动低音与轻快伴奏弦：每 4 拍强拍落根音 + 玉磬轻击，每 2 拍反拍轻拨五度泛音
+      const barIdx = Math.floor(step / 4) % this.BASS_PROGRESSION.length;
+      const bassFreq = this.BASS_PROGRESSION[barIdx];
+
+      if (step % 4 === 0) {
+        this.playPluckNote(bassFreq, 0.65, 0.032);
+        this.playJadePercussion(0.018);
+      } else if (step % 4 === 2) {
+        this.playPluckNote(bassFreq * 1.5, 0.35, 0.022);
+        this.playJadePercussion(0.011);
+      } else if (step % 2 === 1) {
+        // 轻巧反拍伴奏音，赋予音乐轻快跳跃感
+        this.playPluckNote(bassFreq * 2, 0.22, 0.015);
+      }
+
       this.bgmStep++;
-    }, 950);
+    }, 210);
   }
 
   public stopBgm(): void {
@@ -106,9 +172,9 @@ class XianxiaSoundEngine {
   }
 
   /**
-   * 合成古琴/古筝拨弦泛音
+   * 合成清脆古筝/琵琶颗粒拨弦音
    */
-  private playGuqinNote(freq: number, duration: number, volume: number): void {
+  private playPluckNote(freq: number, duration: number, volume: number): void {
     const ctx = this.ensureContext();
     if (!ctx) return;
 
@@ -120,12 +186,13 @@ class XianxiaSoundEngine {
     osc1.type = "triangle";
     osc1.frequency.setValueAtTime(freq, now);
 
-    // 二倍频泛音营造古琴清越木质感
+    // 二倍频泛音增加丝竹清脆亮度
     osc2.type = "sine";
     osc2.frequency.setValueAtTime(freq * 2, now);
 
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.linearRampToValueAtTime(volume, now + 0.025);
+    // 极快起音模拟指尖拨弦颗粒感
+    gain.gain.linearRampToValueAtTime(volume, now + 0.008);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
     osc1.connect(gain);
@@ -134,8 +201,81 @@ class XianxiaSoundEngine {
 
     osc1.start(now);
     osc2.start(now);
-    osc1.stop(now + duration);
-    osc2.stop(now + duration);
+    osc1.stop(now + duration + 0.01);
+    osc2.stop(now + duration + 0.01);
+  }
+
+  /**
+   * 合成仙侠竹笛（带轻微颤音 Vibrato）
+   */
+  private playDiziFluteNote(freq: number, duration: number, volume: number): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const vibrato = ctx.createOscillator();
+    const vibratoGain = ctx.createGain();
+    const gain = ctx.createGain();
+
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(freq, now);
+
+    // 5.5Hz 竹笛自然气息颤音
+    vibrato.type = "sine";
+    vibrato.frequency.setValueAtTime(5.5, now);
+    vibratoGain.gain.setValueAtTime(4.5, now);
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(volume, now + 0.04);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    vibrato.connect(vibratoGain);
+    vibratoGain.connect(osc.frequency);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    vibrato.start(now);
+    osc.stop(now + duration + 0.01);
+    vibrato.stop(now + duration + 0.01);
+  }
+
+  /**
+   * 古筝起手刮奏琶音
+   */
+  private playGuzhengArpeggio(freqs: number[], volume: number): void {
+    freqs.forEach((f, idx) => {
+      setTimeout(() => {
+        if (this.bgmEnabled) {
+          this.playPluckNote(f, 0.55, volume);
+        }
+      }, idx * 45);
+    });
+  }
+
+  /**
+   * 轻巧竹木/玉磬节拍点缀音
+   */
+  private playJadePercussion(volume: number): void {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(1760, now);
+    osc.frequency.exponentialRampToValueAtTime(880, now + 0.035);
+
+    gain.gain.setValueAtTime(volume, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.04);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.045);
   }
 
   /**
@@ -164,7 +304,7 @@ class XianxiaSoundEngine {
   }
 
   /**
-   * 2. 道具/灵石扣减提示音：清晰的双音消耗反馈
+   * 2. 道具/灵石扣减提示音：清脆三连灵玉散落 + 消耗流转音效
    */
   public playItemDeduct(): void {
     if (!this.sfxEnabled) return;
@@ -172,17 +312,66 @@ class XianxiaSoundEngine {
     if (!ctx) return;
 
     const now = ctx.currentTime;
-    [659.25, 523.25].forEach((freq, idx) => {
+    // 清脆灵石/道具飞出三连音 (C6 -> G5 -> D5)
+    [1046.5, 783.99, 587.33].forEach((freq, idx) => {
       const osc = ctx.createOscillator();
+      const chime = ctx.createOscillator();
       const gain = ctx.createGain();
+      const t = now + idx * 0.055;
+
       osc.type = "triangle";
-      osc.frequency.setValueAtTime(freq, now + idx * 0.065);
-      gain.gain.setValueAtTime(0.08, now + idx * 0.065);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.065 + 0.14);
+      osc.frequency.setValueAtTime(freq, t);
+
+      chime.type = "sine";
+      chime.frequency.setValueAtTime(freq * 2, t);
+
+      gain.gain.setValueAtTime(0.095, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+
       osc.connect(gain);
+      chime.connect(gain);
       gain.connect(ctx.destination);
-      osc.start(now + idx * 0.065);
-      osc.stop(now + idx * 0.065 + 0.15);
+
+      osc.start(t);
+      chime.start(t);
+      osc.stop(t + 0.17);
+      chime.stop(t + 0.17);
+    });
+  }
+
+  /**
+   * 2b. 道具/灵石不足警示音：沉闷木鱼双叩 + 禁制回弹提示音
+   */
+  public playInsufficient(): void {
+    if (!this.sfxEnabled) return;
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    [311.13, 207.65].forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const sub = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const t = now + idx * 0.11;
+
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(freq, t);
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.82, t + 0.12);
+
+      sub.type = "triangle";
+      sub.frequency.setValueAtTime(freq * 0.5, t);
+
+      gain.gain.setValueAtTime(0.09, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+
+      osc.connect(gain);
+      sub.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(t);
+      sub.start(t);
+      osc.stop(t + 0.15);
+      sub.stop(t + 0.15);
     });
   }
 

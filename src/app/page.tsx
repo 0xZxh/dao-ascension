@@ -290,7 +290,7 @@ export default function JadeXianxiaH5Game() {
   const [sfxEnabled, setSfxEnabled] = useState<boolean>(true);
   const hasAutoStartedAudioRef = useRef<boolean>(false);
 
-  // 醒目道具扣减与属性获得飘字提示系统 (满足需求4：道具扣减提示明显)
+  // 醒目道具扣减与属性获得飘字提示系统 (满足需求：道具不足提示 + 扣道具明显表现)
   interface ResourceDeltaBadge {
     id: string;
     icon: string;
@@ -299,9 +299,62 @@ export default function JadeXianxiaH5Game() {
     delta: number;
     isDeduction: boolean;
   }
+  interface InsufficientAlertInfo {
+    titleZh: string;
+    titleEn: string;
+    detailZh: string;
+    detailEn: string;
+    missingKey: "stones" | "iron" | "meteor" | "seeds" | "other";
+    actionLabelZh?: string;
+    actionLabelEn?: string;
+    onQuickResolve?: () => void;
+  }
+  interface PlotFloatingFx {
+    textZh: string;
+    textEn: string;
+    subTextZh?: string;
+    subTextEn?: string;
+    isDeduction: boolean;
+    key: number;
+  }
+  interface ForgeFloatingFx {
+    deductions: string[];
+    gainText?: string;
+    key: number;
+  }
   const [deltaBannerItems, setDeltaBannerItems] = useState<ResourceDeltaBadge[]>([]);
   const [slotDeltas, setSlotDeltas] = useState<Record<string, number>>({});
+  const [insufficientAlert, setInsufficientAlert] = useState<InsufficientAlertInfo | null>(null);
+  const [missingSlotKey, setMissingSlotKey] = useState<string | null>(null);
+  const [plotFloatingFx, setPlotFloatingFx] = useState<Record<number, PlotFloatingFx>>({});
+  const [forgeFloatingFx, setForgeFloatingFx] = useState<ForgeFloatingFx | null>(null);
   const deltaTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const insufficientTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const triggerInsufficientAlert = (info: InsufficientAlertInfo) => {
+    xianxiaAudio.playInsufficient();
+    setInsufficientAlert(info);
+    setMissingSlotKey(info.missingKey);
+    if (insufficientTimerRef.current) clearTimeout(insufficientTimerRef.current);
+    insufficientTimerRef.current = setTimeout(() => {
+      setMissingSlotKey(null);
+      setInsufficientAlert(null);
+    }, 5200);
+  };
+
+  const triggerPlotFloatingFx = (plotId: number, fx: Omit<PlotFloatingFx, "key">) => {
+    setPlotFloatingFx((prev) => ({
+      ...prev,
+      [plotId]: { ...fx, key: Date.now() },
+    }));
+    setTimeout(() => {
+      setPlotFloatingFx((prev) => {
+        const next = { ...prev };
+        delete next[plotId];
+        return next;
+      });
+    }, 2400);
+  };
 
   // 全局按钮点击清脆玉佩音效 + 首次交互自动开启仙侠古琴背景音
   useEffect(() => {
@@ -647,6 +700,57 @@ export default function JadeXianxiaH5Game() {
 
         setSnapshot(data.snapshot);
       }
+
+      // 若后端返回道具或灵石不足等错误，立即弹出醒目警示框并闪烁对应资源槽
+      if (data && data.ok === false && data.error) {
+        const errMsg = String(data.error);
+        const isStonesErr = errMsg.includes("灵石");
+        const isIronErr = errMsg.includes("玄铁");
+        const isMeteorErr = errMsg.includes("陨铁");
+        triggerInsufficientAlert({
+          titleZh: isStonesErr
+            ? "⚠️ 灵石余额不足 · 无法施展仙术"
+            : isIronErr || isMeteorErr
+            ? "⚠️ 炼器仙矿不足 · 无法开炉淬剑"
+            : "⚠️ 仙门禁制提示",
+          titleEn: isStonesErr
+            ? "⚠️ Insufficient Spirit Stones"
+            : isIronErr || isMeteorErr
+            ? "⚠️ Insufficient Forging Ores"
+            : "⚠️ Action Blocked",
+          detailZh: errMsg,
+          detailEn: errMsg,
+          missingKey: isStonesErr
+            ? "stones"
+            : isIronErr
+            ? "iron"
+            : isMeteorErr
+            ? "meteor"
+            : "other",
+          actionLabelZh: isStonesErr
+            ? "💎 立即补充灵石 (+充灵石)"
+            : isIronErr || isMeteorErr
+            ? "⚔️ 前往云海试炼获取仙矿"
+            : undefined,
+          actionLabelEn: isStonesErr
+            ? "💎 Top Up Spirit Stones"
+            : isIronErr || isMeteorErr
+            ? "⚔️ Farm Ores in Trial Tower"
+            : undefined,
+          onQuickResolve: isStonesErr
+            ? () => {
+                setInsufficientAlert(null);
+                setIsRechargeModalOpen(true);
+              }
+            : isIronErr || isMeteorErr
+            ? () => {
+                setInsufficientAlert(null);
+                setActiveBuilding("REALM");
+              }
+            : undefined,
+        });
+      }
+
       return data;
     } finally {
       if (isGlobalBlocking) {
@@ -879,10 +983,48 @@ export default function JadeXianxiaH5Game() {
     );
     if (!plot) return;
 
+    // 播种前预检：若乾坤袋无对应仙种且灵石不足，立即触发醒目不足提示与原位飘字
+    if (plot.status === "EMPTY") {
+      const seedCfg =
+        snapshot.catalogs.herbSeeds.find((s) => s.tier === selectedSeedTier) ||
+        snapshot.catalogs.herbSeeds[0];
+      const bagSeedCount = snapshot.cultivator.inventory.seedBag[selectedSeedTier] || 0;
+      const curStones = snapshot.cultivator.spiritStones;
+
+      if (bagSeedCount <= 0 && curStones < seedCfg.costSpiritStones) {
+        triggerPlotFloatingFx(plotId, {
+          textZh: `⚠️ 灵石不足 (需 ${seedCfg.costSpiritStones}💎)`,
+          textEn: `⚠️ Need ${seedCfg.costSpiritStones}💎 Stones`,
+          subTextZh: `当前仅余 ${curStones} 灵石`,
+          subTextEn: `Only ${curStones} Stones left`,
+          isDeduction: true,
+        });
+        triggerInsufficientAlert({
+          titleZh: `⚠️ 仙资不足 · 无法播下【${seedCfg.name}】`,
+          titleEn: `⚠️ Insufficient Stones to Plant [${seedCfg.name}]`,
+          detailZh: `采购 ${seedCfg.tier}阶·${seedCfg.name} 仙种需消耗 ${seedCfg.costSpiritStones} 灵石（当前仅余 ${curStones} 灵石，且乾坤袋无该品阶库存仙种）。`,
+          detailEn: `Requires ${seedCfg.costSpiritStones} Spirit Stones (Current: ${curStones}, and 0 seeds in bag).`,
+          missingKey: "stones",
+          actionLabelZh: "💎 立即补充灵石 (+充灵石)",
+          actionLabelEn: "💎 Top Up Spirit Stones",
+          onQuickResolve: () => {
+            setInsufficientAlert(null);
+            setIsRechargeModalOpen(true);
+          },
+        });
+        return;
+      }
+    }
+
     setLoadingPlotIds((prev) => [...prev, plotId]);
     try {
       if (plot.status === "EMPTY") {
-        await callGameApi(
+        const seedCfg =
+          snapshot.catalogs.herbSeeds.find((s) => s.tier === selectedSeedTier) ||
+          snapshot.catalogs.herbSeeds[0];
+        const bagSeedCount = snapshot.cultivator.inventory.seedBag[selectedSeedTier] || 0;
+
+        const data = await callGameApi(
           {
             action: "PLANT_HERB",
             plotId,
@@ -895,10 +1037,26 @@ export default function JadeXianxiaH5Game() {
             textEn: `Plot ${plotId + 1} planting seed...`,
           }
         );
-        if (tutorialStage === 1) setTutorialStage(2);
+
+        if (data?.ok) {
+          triggerPlotFloatingFx(plotId, {
+            textZh:
+              bagSeedCount > 0
+                ? `🔻 消耗仙种 -1 🌱`
+                : `🔻 消耗灵石 -${seedCfg.costSpiritStones} 💎`,
+            textEn:
+              bagSeedCount > 0
+                ? `🔻 -1 🌱 Bag Seed`
+                : `🔻 -${seedCfg.costSpiritStones} 💎 Stones`,
+            subTextZh: `🌱 播下【${seedCfg.name}】`,
+            subTextEn: `🌱 Planted ${seedCfg.name}`,
+            isDeduction: true,
+          });
+          if (tutorialStage === 1) setTutorialStage(2);
+        }
       } else if (plot.status === "GROWING") {
         if (!plot.wateredWithSpiritSpring) {
-          await callGameApi(
+          const data = await callGameApi(
             {
               action: "WATER_SPIRIT_SPRING",
               plotId,
@@ -910,7 +1068,14 @@ export default function JadeXianxiaH5Game() {
               textEn: `Plot ${plotId + 1} watering dew...`,
             }
           );
-          if (tutorialStage <= 2) setTutorialStage(3);
+          if (data?.ok) {
+            triggerPlotFloatingFx(plotId, {
+              textZh: `💧 灵泉引润 · 耗时减半`,
+              textEn: `💧 Spring Dew · Time -50%`,
+              isDeduction: false,
+            });
+            if (tutorialStage <= 2) setTutorialStage(3);
+          }
         } else {
           const rem = plot.remainingGrowSeconds ?? 0;
           triggerFloatingStat(
@@ -934,20 +1099,27 @@ export default function JadeXianxiaH5Game() {
             textEn: `Plot ${plotId + 1} refining pill...`,
           }
         );
-        const newHp = data?.snapshot?.cultivator?.maxHp || prevHp + 50;
-        const diffHp = newHp - prevHp;
-        triggerFloatingStat(
-          t(`灵丹入体 · 气血上限 +${diffHp} HP`, `Max HP +${diffHp} HP`)
-        );
-
-        if (tutorialStage === 3) {
-          setTutorialStage(4);
-          triggerUnlockNotice(
-            t(
-              "灵草筑基圆满 · 新仙阁已开启：【天工铸剑阁】（锻造本命飞剑提升攻击力 ATK）",
-              "Unlocked New Pavilion: [Spirit Forge] (Craft Flying Swords for +ATK)"
-            )
+        if (data?.ok) {
+          const newHp = data?.snapshot?.cultivator?.maxHp || prevHp + 50;
+          const diffHp = newHp - prevHp;
+          triggerPlotFloatingFx(plotId, {
+            textZh: `✨ 气血 +${diffHp} ❤️ · 回春丹 +1 💊`,
+            textEn: `✨ +${diffHp} ❤️ HP · +1 💊 Pill`,
+            isDeduction: false,
+          });
+          triggerFloatingStat(
+            t(`灵丹入体 · 气血上限 +${diffHp} HP`, `Max HP +${diffHp} HP`)
           );
+
+          if (tutorialStage === 3) {
+            setTutorialStage(4);
+            triggerUnlockNotice(
+              t(
+                "灵草筑基圆满 · 新仙阁已开启：【天工铸剑阁】（锻造本命飞剑提升攻击力 ATK）",
+                "Unlocked New Pavilion: [Spirit Forge] (Craft Flying Swords for +ATK)"
+              )
+            );
+          }
         }
       }
     } finally {
@@ -956,12 +1128,96 @@ export default function JadeXianxiaH5Game() {
   };
 
   // ==========================================================================
-  // 3. 天工铸剑引导 (+攻击力 ATK)
+  // 3. 天工铸剑引导 (+攻击力 ATK，带仙矿/灵石不足提示与剑炉扣减动效)
   // ==========================================================================
   const handleForgeWeapon = async (blueprintId: string) => {
     if (loadingAction || isForgingAnim || !snapshot) return;
+    const bp = snapshot.catalogs.forgeBlueprints.find((b) => b.id === blueprintId);
+    if (!bp) return;
+
+    const curIron = snapshot.cultivator.inventory.ironOres;
+    const curMeteor = snapshot.cultivator.inventory.meteorOres;
+    const curStones = snapshot.cultivator.spiritStones;
+
+    const lackIron = Math.max(0, bp.ironOreCost - curIron);
+    const lackMeteor = Math.max(0, bp.meteorOreCost - curMeteor);
+    const lackStones = Math.max(0, Number((bp.spiritStoneFee - curStones).toFixed(1)));
+
+    // 若材料或灵石不足，立即触发震动音效、闪烁缺口槽位并弹出快捷引导提示
+    if (lackIron > 0 || lackMeteor > 0 || lackStones > 0) {
+      const missingPartsZh: string[] = [];
+      const missingPartsEn: string[] = [];
+      if (lackIron > 0) {
+        missingPartsZh.push(`还差 ${lackIron} 块⛏️百炼玄铁（需 ${bp.ironOreCost}，当前 ${curIron}）`);
+        missingPartsEn.push(`Need ${lackIron} more ⛏️ Iron Ores (${curIron}/${bp.ironOreCost})`);
+      }
+      if (lackMeteor > 0) {
+        missingPartsZh.push(`还差 ${lackMeteor} 块☄️星辰陨铁（需 ${bp.meteorOreCost}，当前 ${curMeteor}）`);
+        missingPartsEn.push(`Need ${lackMeteor} more ☄️ Meteor Ores (${curMeteor}/${bp.meteorOreCost})`);
+      }
+      if (lackStones > 0) {
+        missingPartsZh.push(`还差 ${lackStones} 💎灵石火种费（需 ${bp.spiritStoneFee}，当前 ${curStones}）`);
+        missingPartsEn.push(`Need ${lackStones} more 💎 Spirit Stones (${curStones}/${bp.spiritStoneFee})`);
+      }
+
+      setForgeFloatingFx({
+        deductions: [
+          lackIron > 0
+            ? t(`⚠️ 玄铁矿不足 (${curIron}/${bp.ironOreCost})`, `⚠️ Iron Ore Short (${curIron}/${bp.ironOreCost})`)
+            : "",
+          lackMeteor > 0
+            ? t(`⚠️ 星辰陨铁不足 (${curMeteor}/${bp.meteorOreCost})`, `⚠️ Meteor Ore Short (${curMeteor}/${bp.meteorOreCost})`)
+            : "",
+          lackStones > 0
+            ? t(`⚠️ 灵火费不足 (${curStones}/${bp.spiritStoneFee}💎)`, `⚠️ Spirit Stones Short (${curStones}/${bp.spiritStoneFee}💎)`)
+            : "",
+        ].filter(Boolean),
+        key: Date.now(),
+      });
+      setTimeout(() => setForgeFloatingFx(null), 2600);
+
+      const primaryMissing: "iron" | "meteor" | "stones" =
+        lackIron > 0 ? "iron" : lackMeteor > 0 ? "meteor" : "stones";
+
+      triggerInsufficientAlert({
+        titleZh: `⚠️ 锻造材料不足 · 无法开炉铸造【${bp.name}】`,
+        titleEn: `⚠️ Insufficient Materials to Forge [${bp.name}]`,
+        detailZh: missingPartsZh.join("；") + "。",
+        detailEn: missingPartsEn.join("; ") + ".",
+        missingKey: primaryMissing,
+        actionLabelZh:
+          lackIron > 0 || lackMeteor > 0
+            ? "⚔️ 前往【云海试炼】斩妖获取仙矿 →"
+            : "💎 立即补充灵石 (+充灵石)",
+        actionLabelEn:
+          lackIron > 0 || lackMeteor > 0
+            ? "⚔️ Farm Ores in Cloud Trial Tower →"
+            : "💎 Top Up Spirit Stones",
+        onQuickResolve: () => {
+          setInsufficientAlert(null);
+          if (lackIron > 0 || lackMeteor > 0) {
+            setActiveBuilding("REALM");
+          } else {
+            setIsRechargeModalOpen(true);
+          }
+        },
+      });
+      return;
+    }
+
     setIsForgingAnim(true);
     const prevAtk = snapshot.cultivator.atk;
+
+    // 立即在八卦剑炉升起明显的材料投入扣减飞字
+    const spentItems = [
+      `🔻 -${bp.ironOreCost} ⛏️百炼玄铁`,
+      ...(bp.meteorOreCost > 0 ? [`🔻 -${bp.meteorOreCost} ☄️星辰陨铁`] : []),
+      `🔻 -${bp.spiritStoneFee} 💎灵石火种`,
+    ];
+    setForgeFloatingFx({
+      deductions: spentItems,
+      key: Date.now(),
+    });
 
     setTimeout(async () => {
       const data = await callGameApi(
@@ -980,6 +1236,16 @@ export default function JadeXianxiaH5Game() {
       if (data?.ok) {
         const forged = data.actionResult?.artifact;
         const newAtk = data?.snapshot?.cultivator?.atk || prevAtk;
+        setForgeFloatingFx({
+          deductions: spentItems,
+          gainText: t(
+            `⚔️ 仙剑出匣【${forged?.name || bp.name}】 · 攻击升至 ${newAtk} ATK`,
+            `⚔️ Forged [${trArtifactName(forged?.name || bp.name, "en")}] · ATK ${newAtk}`
+          ),
+          key: Date.now(),
+        });
+        setTimeout(() => setForgeFloatingFx(null), 3200);
+
         triggerFloatingStat(
           t(
             `仙剑出匣【${forged?.name || "飞剑"}】 · 攻击升至 ${newAtk} ATK`,
@@ -1080,11 +1346,20 @@ export default function JadeXianxiaH5Game() {
         });
       } else if (step.actor === "PILL_RECOVERY") {
         xianxiaAudio.playPillHeal();
+        xianxiaAudio.playItemDeduct();
         setHeroAnimState("heal");
         setMonsterAnimState("idle");
+        setSlotDeltas((prev) => ({ ...prev, pills: -1 }));
+        setTimeout(() => {
+          setSlotDeltas((prev) => {
+            const next = { ...prev };
+            delete next.pills;
+            return next;
+          });
+        }, 1600);
         setArenaFloatingDmg({
           target: "hero",
-          text: `灵丹回春 +${step.hpRestored} HP`,
+          text: `🔻消耗回春丹 -1💊 · 气血 +${step.hpRestored} HP`,
           tone: "jade",
         });
       }
@@ -1701,33 +1976,33 @@ export default function JadeXianxiaH5Game() {
         </div>
       )}
 
-      {/* 0.5 醒目道具扣减与属性获得游戏飘字横幅 (满足需求4：道具扣减提示要明显) */}
+      {/* 0.5 醒目道具扣减与属性获得游戏飘字横幅 (满足需求：扣道具也要有明显表现) */}
       {deltaBannerItems.length > 0 && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-wrap items-center justify-center gap-2.5 px-4 max-w-2xl">
           {deltaBannerItems.map((item) => (
             <div
               key={item.id}
-              className={`px-3.5 py-1.5 border-2 shadow-2xl flex items-center gap-2 font-serif animate-bounce backdrop-blur-md ${
+              className={`px-4 py-2 border-2 shadow-2xl flex items-center gap-2.5 font-serif animate-bounce backdrop-blur-md ${
                 item.isDeduction
-                  ? "bg-[#3B0A0A]/95 border-[#F87171] text-[#FEE2E2] shadow-[0_0_24px_rgba(239,68,68,0.55)]"
-                  : "bg-[#092E26]/95 border-[#34D399] text-[#D1FAE5] shadow-[0_0_24px_rgba(16,185,129,0.5)]"
+                  ? "bg-[#450A0A]/96 border-[#F87171] text-[#FEE2E2] shadow-[0_0_28px_rgba(239,68,68,0.65)] ring-2 ring-[#EF4444]/50"
+                  : "bg-[#064E3B]/96 border-[#34D399] text-[#D1FAE5] shadow-[0_0_28px_rgba(16,185,129,0.55)] ring-2 ring-[#10B981]/40"
               }`}
             >
-              <span className="text-base leading-none">{item.icon}</span>
+              <span className="text-lg leading-none">{item.icon}</span>
               <span
-                className={`text-[10px] px-1.5 py-0.2 font-bold uppercase tracking-wider ${
+                className={`text-[11px] px-1.5 py-0.5 font-bold uppercase tracking-wider ${
                   item.isDeduction
                     ? "bg-[#EF4444] text-white"
                     : "bg-[#10B981] text-[#052E24]"
                 }`}
               >
-                {item.isDeduction ? t("消耗扣减", "SPENT") : t("仙缘获得", "GAINED")}
+                {item.isDeduction ? t("🔻 道具消耗", "🔻 SPENT") : t("✨ 仙缘获得", "✨ GAINED")}
               </span>
-              <span className="text-xs font-bold tracking-wide">
+              <span className="text-xs sm:text-sm font-bold tracking-wide">
                 {lang === "en" ? item.labelEn : item.labelZh}
               </span>
               <span
-                className={`font-mono text-base font-extrabold tabular-nums ${
+                className={`font-mono text-base sm:text-lg font-extrabold tabular-nums ${
                   item.isDeduction ? "text-[#FCA5A5]" : "text-[#FDE68A]"
                 }`}
               >
@@ -1735,6 +2010,53 @@ export default function JadeXianxiaH5Game() {
               </span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* 0.6 仙资/道具不足醒目警示弹窗横幅 (满足需求：道具不足要加上提示 + 一键补充/获取引导) */}
+      {insufficientAlert && (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-lg animate-fadeIn">
+          <div className="bg-[#2B0909]/96 border-2 border-[#F87171] px-4 py-3 shadow-[0_0_35px_rgba(239,68,68,0.6)] backdrop-blur-md text-xs font-serif text-[#FEE2E2]">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="px-1.5 py-0.5 bg-[#DC2626] text-white font-bold text-[10px] tracking-widest shrink-0">
+                  {t("仙资不足", "INSUFFICIENT")}
+                </span>
+                <span className="font-bold text-sm text-[#FCA5A5]">
+                  {lang === "en" ? insufficientAlert.titleEn : insufficientAlert.titleZh}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setInsufficientAlert(null);
+                  setMissingSlotKey(null);
+                }}
+                className="text-[#FCA5A5] hover:text-white font-mono text-sm px-1"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-[#FECACA] text-xs mt-1.5 leading-relaxed">
+              {lang === "en" ? insufficientAlert.detailEn : insufficientAlert.detailZh}
+            </p>
+            {insufficientAlert.onQuickResolve && (
+              <div className="mt-2.5 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={insufficientAlert.onQuickResolve}
+                  className="xianxia-btn-gold px-3 py-1 text-xs font-bold flex items-center gap-1.5 shadow-md"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-[#7D5E2A]" />
+                  <span>
+                    {lang === "en"
+                      ? insufficientAlert.actionLabelEn
+                      : insufficientAlert.actionLabelZh}
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1961,6 +2283,7 @@ export default function JadeXianxiaH5Game() {
             ].map((slot) => {
               const hasDelta = slot.delta !== undefined && slot.delta !== 0;
               const isNeg = (slot.delta || 0) < 0;
+              const isMissing = missingSlotKey === slot.key;
               return (
                 <div
                   key={slot.key}
@@ -1968,9 +2291,11 @@ export default function JadeXianxiaH5Game() {
                   className={`relative px-2 sm:px-2.5 py-1 border transition-all flex flex-col justify-between min-w-[60px] sm:min-w-[74px] ${
                     slot.onClick ? "cursor-pointer hover:border-[#F2CE85]" : ""
                   } ${
-                    hasDelta
+                    isMissing
+                      ? "bg-[#581010] border-[#F87171] ring-2 ring-[#EF4444] animate-pulse scale-105"
+                      : hasDelta
                       ? isNeg
-                        ? "bg-[#450A0A] border-[#F87171] ring-1 ring-[#F87171] scale-105"
+                        ? "bg-[#450A0A] border-[#F87171] ring-2 ring-[#F87171] scale-105"
                         : "bg-[#064E3B] border-[#34D399] ring-1 ring-[#34D399] scale-105"
                       : "bg-[#0F1E1B]/90 border-[#C8AA72]/40"
                   }`}
@@ -1982,6 +2307,11 @@ export default function JadeXianxiaH5Game() {
                   <div className={`font-mono font-bold text-xs sm:text-sm tabular-nums ${slot.color}`}>
                     {slot.value}
                   </div>
+                  {isMissing && !hasDelta && (
+                    <span className="absolute -bottom-3 right-0 z-30 px-1.5 py-0.2 text-[9.5px] font-serif font-extrabold bg-[#DC2626] text-white border border-[#FCA5A5] shadow-md animate-bounce whitespace-nowrap">
+                      {t("⚠️不足", "⚠️LOW")}
+                    </span>
+                  )}
                   {hasDelta && (
                     <span
                       className={`absolute -bottom-3 right-0 z-30 px-1.5 py-0.2 text-[10px] font-mono font-extrabold shadow-md animate-bounce whitespace-nowrap ${
@@ -1990,7 +2320,7 @@ export default function JadeXianxiaH5Game() {
                           : "bg-[#10B981] text-[#052E24] border border-[#A7F3D0]"
                       }`}
                     >
-                      {slot.delta! > 0 ? `+${slot.delta}` : slot.delta}
+                      {isNeg ? `🔻${slot.delta}` : `+${slot.delta}`}
                     </span>
                   )}
                 </div>
@@ -2180,15 +2510,35 @@ export default function JadeXianxiaH5Game() {
               </div>
             </div>
 
-            {/* 底部：乾坤储物袋 (4格游戏背包槽位，道具扣减/获得时高亮闪烁) */}
+            {/* 底部：乾坤储物袋 (4格游戏背包槽位，道具扣减/获得/不足时高亮闪烁) */}
             <div className="w-full bg-[#132421] border border-[#C8AA72]/65 p-2.5 space-y-2 font-serif text-xs shadow-inner">
               <div className="flex items-center justify-between text-[11px] text-[#E5D2AB] border-b border-[#C8AA72]/30 pb-1">
                 <span className="font-bold tracking-wider flex items-center gap-1">
                   <span>🎒</span>
                   <span>{t("乾坤储物袋 (道具实时变动)", "Storage Bag (Live Inventory)")}</span>
                 </span>
-                <span className="font-mono text-[10px] text-[#86ABA3]">
-                  💎 {cultivator.spiritStones} {t("灵石", "Stones")}
+                <span
+                  onClick={() => setIsRechargeModalOpen(true)}
+                  className={`font-mono text-[10px] px-1.5 py-0.2 cursor-pointer transition flex items-center gap-1 ${
+                    missingSlotKey === "stones"
+                      ? "bg-[#7F1D1D] text-white border border-[#F87171] animate-pulse"
+                      : slotDeltas.stones && slotDeltas.stones < 0
+                      ? "bg-[#450A0A] text-[#FCA5A5] border border-[#F87171]"
+                      : "text-[#FDE68A] hover:underline"
+                  }`}
+                >
+                  <span>💎 {cultivator.spiritStones} {t("灵石", "Stones")}</span>
+                  {slotDeltas.stones !== undefined && slotDeltas.stones !== 0 && (
+                    <span
+                      className={`px-1 font-extrabold ${
+                        slotDeltas.stones < 0
+                          ? "bg-[#EF4444] text-white"
+                          : "bg-[#10B981] text-[#052E24]"
+                      }`}
+                    >
+                      {slotDeltas.stones < 0 ? `🔻${slotDeltas.stones}` : `+${slotDeltas.stones}`}
+                    </span>
+                  )}
                 </span>
               </div>
 
@@ -2228,14 +2578,17 @@ export default function JadeXianxiaH5Game() {
                 ].map((item) => {
                   const hasDelta = item.delta !== undefined && item.delta !== 0;
                   const isNeg = (item.delta || 0) < 0;
+                  const isMissing = missingSlotKey === item.key;
                   return (
                     <div
                       key={item.key}
                       className={`relative p-1.5 border transition-all ${
-                        hasDelta
+                        isMissing
+                          ? "bg-[#581010] border-[#F87171] ring-2 ring-[#EF4444] animate-pulse scale-105"
+                          : hasDelta
                           ? isNeg
-                            ? "bg-[#581010] border-[#F87171] ring-1 ring-[#F87171]"
-                            : "bg-[#0B4F3E] border-[#34D399] ring-1 ring-[#34D399]"
+                            ? "bg-[#581010] border-[#F87171] ring-2 ring-[#F87171] scale-105"
+                            : "bg-[#0B4F3E] border-[#34D399] ring-1 ring-[#34D399] scale-105"
                           : "bg-[#1A302C] border-[#C8AA72]/35"
                       }`}
                     >
@@ -2244,13 +2597,18 @@ export default function JadeXianxiaH5Game() {
                       <div className="font-mono font-bold text-xs text-[#F4F9F7] tabular-nums">
                         ×{item.count}
                       </div>
+                      {isMissing && !hasDelta && (
+                        <span className="absolute -top-2 -right-1 px-1 py-0 text-[9px] font-serif font-extrabold bg-[#DC2626] text-white shadow-md animate-bounce">
+                          {t("不足", "LOW")}
+                        </span>
+                      )}
                       {hasDelta && (
                         <span
                           className={`absolute -top-2 -right-1 px-1 py-0 text-[10px] font-mono font-extrabold shadow-md animate-bounce ${
                             isNeg ? "bg-[#EF4444] text-white" : "bg-[#10B981] text-[#052E24]"
                           }`}
                         >
-                          {item.delta! > 0 ? `+${item.delta}` : item.delta}
+                          {isNeg ? `🔻${item.delta}` : `+${item.delta}`}
                         </span>
                       )}
                     </div>
@@ -2392,23 +2750,41 @@ export default function JadeXianxiaH5Game() {
                   </p>
                 </div>
 
-                {/* 仙种品阶选择器 (折沿按钮) */}
-                <div className="flex gap-1.5 bg-[#EDF5F3] p-1 border border-[#C8AA72]/45">
-                  {catalogs.herbSeeds.map((s) => (
-                    <button
-                      key={s.tier}
-                      onClick={() => setSelectedSeedTier(s.tier)}
-                      className={`px-2.5 py-0.5 text-xs font-serif transition ${
-                        selectedSeedTier === s.tier
-                          ? "bg-[#DCEEEB] border border-[#73ADA1] text-[#234E46] font-bold shadow-xs"
-                          : "text-[#5E7C77] hover:text-[#253D39]"
-                      }`}
-                    >
-                      {s.tier}
-                      {t("阶", "T")} · {trHerbName(s.name, lang)} (+
-                      {s.permMaxHpBonus}HP)
-                    </button>
-                  ))}
+                {/* 仙种品阶选择器 (折沿按钮，实时显示袋藏数量或灵石扣减价格) */}
+                <div className="flex flex-wrap gap-1.5 bg-[#EDF5F3] p-1 border border-[#C8AA72]/45">
+                  {catalogs.herbSeeds.map((s) => {
+                    const bagCount = cultivator.inventory.seedBag[s.tier] || 0;
+                    const canAfford = bagCount > 0 || cultivator.spiritStones >= s.costSpiritStones;
+                    return (
+                      <button
+                        key={s.tier}
+                        onClick={() => setSelectedSeedTier(s.tier)}
+                        className={`px-2.5 py-0.5 text-xs font-serif transition flex items-center gap-1 ${
+                          selectedSeedTier === s.tier
+                            ? "bg-[#DCEEEB] border border-[#73ADA1] text-[#234E46] font-bold shadow-xs"
+                            : "text-[#5E7C77] hover:text-[#253D39]"
+                        }`}
+                      >
+                        <span>
+                          {s.tier}
+                          {t("阶", "T")} · {trHerbName(s.name, lang)} (+{s.permMaxHpBonus}HP)
+                        </span>
+                        <span
+                          className={`text-[10px] font-mono px-1 py-0.2 border ${
+                            bagCount > 0
+                              ? "bg-[#D1FAE5] text-[#065F46] border-[#6EE7B7]"
+                              : canAfford
+                              ? "bg-[#FEF3C7] text-[#92400E] border-[#FCD34D]"
+                              : "bg-[#FEE2E2] text-[#991B1B] border-[#FCA5A5]"
+                          }`}
+                        >
+                          {bagCount > 0
+                            ? `${t("袋藏", "Bag")}×${bagCount}`
+                            : `${s.costSpiritStones}💎`}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -2425,6 +2801,13 @@ export default function JadeXianxiaH5Game() {
                         tutorialStage === 3);
 
                     const isPlotLoading = loadingPlotIds.includes(plot.plotId);
+                    const localFx = plotFloatingFx[plot.plotId];
+                    const curSeedCfg =
+                      catalogs.herbSeeds.find((s) => s.tier === selectedSeedTier) ||
+                      catalogs.herbSeeds[0];
+                    const curBagSeedCount = cultivator.inventory.seedBag[selectedSeedTier] || 0;
+                    const canAffordSeed =
+                      curBagSeedCount > 0 || cultivator.spiritStones >= curSeedCfg.costSpiritStones;
 
                     const isRightCol = pIdx % 3 === 2;
                     const isBottomRow = pIdx >= 6;
@@ -2457,6 +2840,29 @@ export default function JadeXianxiaH5Game() {
                           />
                         )}
 
+                        {/* 灵畦原位道具扣减/增益飞字动效层 (满足需求：扣道具也要有表现) */}
+                        {localFx && (
+                          <div
+                            key={localFx.key}
+                            className="absolute inset-x-1 top-6 z-30 pointer-events-none flex flex-col items-center justify-center animate-bounce"
+                          >
+                            <div
+                              className={`px-2 py-1 border-2 shadow-xl font-serif text-[11px] font-extrabold whitespace-nowrap ${
+                                localFx.isDeduction
+                                  ? "bg-[#450A0A]/95 border-[#F87171] text-[#FCA5A5]"
+                                  : "bg-[#064E3B]/95 border-[#34D399] text-[#A7F3D0]"
+                              }`}
+                            >
+                              {lang === "en" ? localFx.textEn : localFx.textZh}
+                            </div>
+                            {(localFx.subTextZh || localFx.subTextEn) && (
+                              <span className="mt-0.5 px-1.5 py-0.2 bg-[#12221F]/95 text-[#FDE68A] border border-[#C8AA72] text-[9.5px] font-serif font-bold whitespace-nowrap">
+                                {lang === "en" ? localFx.subTextEn : localFx.subTextZh}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
                         {/* 局部仙道八卦聚灵 Loading 覆盖层 */}
                         {isPlotLoading && (
                           <div className="absolute inset-0 bg-[#E6F0EC]/92 backdrop-blur-xs z-25 flex flex-col items-center justify-center p-2 transition-all">
@@ -2484,8 +2890,20 @@ export default function JadeXianxiaH5Game() {
                               {plot.herbName?.slice(0, 4) || "灵植"}
                             </span>
                           ) : (
-                            <span className="text-[9.5px] font-serif text-[#86ABA3] px-1 shrink-0">
-                              {t("灵壤", "Soil")}
+                            <span
+                              className={`text-[9.5px] font-mono font-bold px-1 py-0.2 border shrink-0 ${
+                                curBagSeedCount > 0
+                                  ? "bg-[#D1FAE5] text-[#065F46] border-[#6EE7B7]"
+                                  : canAffordSeed
+                                  ? "bg-[#FEF3C7] text-[#92400E] border-[#FCD34D]"
+                                  : "bg-[#FEE2E2] text-[#DC2626] border-[#F87171]"
+                              }`}
+                            >
+                              {curBagSeedCount > 0
+                                ? `🌱袋藏×${curBagSeedCount}`
+                                : canAffordSeed
+                                ? `-${curSeedCfg.costSpiritStones}💎`
+                                : `⚠️需${curSeedCfg.costSpiritStones}💎`}
                             </span>
                           )}
                         </div>
@@ -2505,8 +2923,18 @@ export default function JadeXianxiaH5Game() {
                               <span className="text-xs font-serif font-semibold text-[#5E7C77] leading-tight">
                                 {t("玄土待播", "Empty Soil")}
                               </span>
-                              <span className="text-[9.5px] text-[#86ABA3] leading-none mt-0.5">
-                                {t("点击下种", "Click to Plant")}
+                              <span
+                                className={`text-[9.5px] leading-none mt-0.5 font-serif ${
+                                  canAffordSeed
+                                    ? "text-[#86ABA3]"
+                                    : "text-[#DC2626] font-bold"
+                                }`}
+                              >
+                                {curBagSeedCount > 0
+                                  ? t("点击播下袋藏仙种", "Use Bag Seed")
+                                  : canAffordSeed
+                                  ? t(`点击下种 (-${curSeedCfg.costSpiritStones}灵石)`, `Plant (-${curSeedCfg.costSpiritStones}💎)`)
+                                  : t("⚠️ 灵石不足 (点击补充)", "⚠️ Low Stones")}
                               </span>
                             </div>
                           )}
@@ -2603,8 +3031,28 @@ export default function JadeXianxiaH5Game() {
                 </p>
               </div>
 
-              {/* 温润白玉八卦剑炉动效区 (去圆角大白框，用中式方八卦阵盘) */}
-              <div className="my-3 py-3 px-4 border border-[#C8AA72]/50 bg-white/70 flex flex-col items-center justify-center relative">
+              {/* 温润白玉八卦剑炉动效区 (带材料扣减/不足实时飞字表现) */}
+              <div className="my-3 py-3 px-4 border border-[#C8AA72]/50 bg-white/70 flex flex-col items-center justify-center relative overflow-hidden">
+                {forgeFloatingFx && (
+                  <div
+                    key={forgeFloatingFx.key}
+                    className="mb-2 flex flex-wrap items-center justify-center gap-1.5 z-20 animate-bounce"
+                  >
+                    {forgeFloatingFx.deductions.map((txt, i) => (
+                      <span
+                        key={i}
+                        className="px-2.5 py-0.5 bg-[#450A0A] border border-[#F87171] text-[#FCA5A5] font-mono text-xs font-extrabold shadow-md"
+                      >
+                        {txt}
+                      </span>
+                    ))}
+                    {forgeFloatingFx.gainText && (
+                      <span className="px-2.5 py-0.5 bg-[#064E3B] border border-[#34D399] text-[#FDE68A] font-serif text-xs font-extrabold shadow-md">
+                        {forgeFloatingFx.gainText}
+                      </span>
+                    )}
+                  </div>
+                )}
                 <div
                   className={`w-14 h-14 border-2 border-[#C8AA72] bg-[#FAF6EC] flex items-center justify-center shadow-xs ${
                     isForgingAnim ? "animate-ping" : ""
@@ -2625,10 +3073,10 @@ export default function JadeXianxiaH5Game() {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {catalogs.forgeBlueprints.map((bp, idx) => {
-                  const canForge =
-                    cultivator.inventory.ironOres >= bp.ironOreCost &&
-                    cultivator.inventory.meteorOres >= bp.meteorOreCost &&
-                    cultivator.spiritStones >= bp.spiritStoneFee;
+                  const hasEnoughIron = cultivator.inventory.ironOres >= bp.ironOreCost;
+                  const hasEnoughMeteor = cultivator.inventory.meteorOres >= bp.meteorOreCost;
+                  const hasEnoughStones = cultivator.spiritStones >= bp.spiritStoneFee;
+                  const canForge = hasEnoughIron && hasEnoughMeteor && hasEnoughStones;
                   const isGuideHighlight = tutorialStage === 4 && idx === 0;
                   const isBpLoading =
                     activeLoading?.type === "FORGE" && activeLoading.id === bp.id;
@@ -2659,26 +3107,52 @@ export default function JadeXianxiaH5Game() {
                           {Math.round(bp.baseAtkMax * 1.45)} ·{" "}
                           {t("剑心", "Crit")} +{bp.baseCritPct}%
                         </div>
-                        <div className="text-[11px] font-serif text-[#5C7A75] mt-2 space-y-0.5">
-                          <div>
-                            {t("玄铁矿:", "Iron:")} <span className="font-mono text-[#253D39]">{bp.ironOreCost}</span>{" "}
-                            {bp.meteorOreCost > 0 &&
-                              `· 陨铁: ${bp.meteorOreCost}`}
+                        <div className="text-[11px] font-serif text-[#5C7A75] mt-2 space-y-1 bg-[#F4F8F6] p-2 border border-[#C8AA72]/35">
+                          <div className="flex items-center justify-between">
+                            <span>⛏️ {t("百炼玄铁:", "Iron Ore:")}</span>
+                            <span
+                              className={`font-mono font-bold ${
+                                hasEnoughIron ? "text-[#15803D]" : "text-[#DC2626]"
+                              }`}
+                            >
+                              {cultivator.inventory.ironOres}/{bp.ironOreCost}{" "}
+                              {hasEnoughIron ? "✓" : t("(不足)", "(Low)")}
+                            </span>
                           </div>
-                          <div>
-                            {t("灵火费:", "Furnace Fee:")} <span className="font-mono text-[#253D39]">{bp.spiritStoneFee}</span>{" "}
-                            {t("灵石", "Stones")}
+                          {bp.meteorOreCost > 0 && (
+                            <div className="flex items-center justify-between">
+                              <span>☄️ {t("星辰陨铁:", "Meteor Ore:")}</span>
+                              <span
+                                className={`font-mono font-bold ${
+                                  hasEnoughMeteor ? "text-[#15803D]" : "text-[#DC2626]"
+                                }`}
+                              >
+                                {cultivator.inventory.meteorOres}/{bp.meteorOreCost}{" "}
+                                {hasEnoughMeteor ? "✓" : t("(不足)", "(Low)")}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between">
+                            <span>💎 {t("灵火费用:", "Furnace Fee:")}</span>
+                            <span
+                              className={`font-mono font-bold ${
+                                hasEnoughStones ? "text-[#15803D]" : "text-[#DC2626]"
+                              }`}
+                            >
+                              {cultivator.spiritStones}/{bp.spiritStoneFee}{" "}
+                              {hasEnoughStones ? "✓" : t("(不足)", "(Low)")}
+                            </span>
                           </div>
                         </div>
                       </div>
 
                       <button
-                        disabled={!canForge || isForgingAnim || loadingAction}
+                        disabled={isForgingAnim || loadingAction}
                         onClick={() => handleForgeWeapon(bp.id)}
                         className={`mt-3 w-full py-2 text-xs font-serif font-bold transition flex items-center justify-center min-h-[34px] ${
                           canForge
                             ? "xianxia-btn-gold"
-                            : "bg-slate-200/60 text-slate-400 border border-slate-300 cursor-not-allowed"
+                            : "bg-[#FEF2F2] hover:bg-[#FEE2E2] text-[#B91C1C] border border-[#F87171] shadow-2xs"
                         }`}
                       >
                         {isBpLoading ? (
@@ -2688,9 +3162,14 @@ export default function JadeXianxiaH5Game() {
                             tone="light"
                           />
                         ) : canForge ? (
-                          t("开炉铸剑", "Forge Blade")
+                          t(
+                            `🔥 开炉铸剑 (-${bp.ironOreCost}⛏️ -${bp.spiritStoneFee}💎)`,
+                            `🔥 Forge (-${bp.ironOreCost}⛏️ -${bp.spiritStoneFee}💎)`
+                          )
+                        ) : !hasEnoughIron || !hasEnoughMeteor ? (
+                          t("⚠️ 仙矿不足 · 点击查看获取途径", "⚠️ Missing Ores · Click to Resolve")
                         ) : (
-                          t("玄铁不足 (试炼获取)", "Need Ores")
+                          t("⚠️ 灵石不足 · 点击补充灵石", "⚠️ Low Stones · Click to Top Up")
                         )}
                       </button>
                     </div>
@@ -2889,7 +3368,11 @@ export default function JadeXianxiaH5Game() {
                           onClick={() =>
                             handleStartVisualBattle(currentFloorCfg.floor)
                           }
-                          className="xianxia-btn-gold px-4 py-2 font-serif font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm min-w-[145px]"
+                          className={`px-4 py-2 font-serif font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm min-w-[145px] ${
+                            cultivator.spiritStones >= currentFloorCfg.entryFeeStones
+                              ? "xianxia-btn-gold"
+                              : "bg-[#FEF2F2] hover:bg-[#FEE2E2] text-[#B91C1C] border border-[#F87171]"
+                          }`}
                         >
                           {activeLoading?.type === "BATTLE" ? (
                             <XianxiaLoadingRing
@@ -2902,9 +3385,22 @@ export default function JadeXianxiaH5Game() {
                               <Swords className="w-3.5 h-3.5" />
                               {isBattling
                                 ? t("御剑斗法中...", "In Combat...")
+                                : cultivator.spiritStones < currentFloorCfg.entryFeeStones
+                                ? t(
+                                    `⚠️ 灵石不足 (需 ${currentFloorCfg.entryFeeStones}💎)`,
+                                    `⚠️ Need ${currentFloorCfg.entryFeeStones}💎`
+                                  )
                                 : t(
-                                    `御剑试炼第 ${currentFloorCfg.floor} 重`,
-                                    `Challenge Tier ${currentFloorCfg.floor}`
+                                    `御剑试炼第 ${currentFloorCfg.floor} 重${
+                                      currentFloorCfg.entryFeeStones > 0
+                                        ? ` (-${currentFloorCfg.entryFeeStones}💎)`
+                                        : ""
+                                    }`,
+                                    `Challenge Tier ${currentFloorCfg.floor}${
+                                      currentFloorCfg.entryFeeStones > 0
+                                        ? ` (-${currentFloorCfg.entryFeeStones}💎)`
+                                        : ""
+                                    }`
                                   )}
                             </>
                           )}
