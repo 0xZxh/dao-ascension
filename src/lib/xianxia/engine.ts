@@ -1128,23 +1128,26 @@ function checkRealmProgression(c: CultivatorNftAccount): string | undefined {
     c.baseAtk += 8;
     c.def += 3;
 
+    const stages: RealmStage[] = ["练气期", "筑基期", "结丹期", "元婴期"];
+    const idx = stages.indexOf(c.realm);
     if (c.realmLevel > 3) {
-      c.realmLevel = 1;
-      const stages: RealmStage[] = ["练气期", "筑基期", "结丹期", "元婴期"];
-      const idx = stages.indexOf(c.realm);
       if (idx < stages.length - 1) {
+        c.realmLevel = 1;
         c.realm = stages[idx + 1];
         c.baseHp += 80;
         c.baseAtk += 24;
         c.def += 8;
-        breakthroughMsg = `天降祥瑞！道身突破至【${c.realm}·一层】，基础气血与灵力大幅暴涨！`;
+        breakthroughMsg = `天降祥瑞！道身突破至【${c.realm}·一层】，基础气血+80，攻击+24，护体+8！`;
+      } else {
+        // 元婴期大圆满后允许继续升层
+        breakthroughMsg = `道法通神！道身登临【${c.realm}·${c.realmLevel}层】！基础气血+25，攻击+8，护体+3！`;
       }
+    } else {
+      breakthroughMsg = `道法自然！道身修为突破至【${c.realm}·${c.realmLevel}层】！基础气血+25，攻击+8，护体+3！`;
     }
     c.maxExp = Math.round(c.maxExp * 1.35);
   }
-  c.maxHp = c.baseHp + c.herbBonusHp;
-  c.hp = c.maxHp;
-  c.atk = c.baseAtk + c.weaponBonusAtk;
+  recalculateCultivatorDerivedStats(c);
   return breakthroughMsg;
 }
 
@@ -1329,6 +1332,11 @@ export function harvestAndRefinePill(
   // Update Alchemy Leaderboard Score (种植收获总株数)
   cultivator.herbsHarvestedCount = (cultivator.herbsHarvestedCount || 0) + 1;
   cultivator.scores.alchemyScore = cultivator.herbsHarvestedCount;
+
+  // 炼制灵丹反哺真元修为 EXP
+  const expGained = Math.round(seedConfig.tier * 20 * (plot.wateredWithSpiritSpring ? 1.25 : 1.0));
+  cultivator.exp += expGained;
+  const breakthroughMsg = checkRealmProgression(cultivator);
 
   const harvestedHerbName = plot.herbName || seedConfig.name;
   const refinedPillName = plot.pillName || seedConfig.pillName;
@@ -1519,6 +1527,12 @@ export function forgeImmortalArtifact(
   }
 
   cultivator.scores.blacksmithScore = cultivator.maxHp + cultivator.atk * 4;
+
+  // 天工铸剑引地火淬体，增长修为 EXP
+  const forgeExp = Math.round(bp.spiritStoneFee * 1.5 + (pickedAffix.rarity === "传世仙器" ? 100 : 30));
+  cultivator.exp += forgeExp;
+  const breakthroughMsg = checkRealmProgression(cultivator);
+
   recalculateLeaderboards(store);
 
   store.elderCounsel = {
@@ -1944,10 +1958,19 @@ export function challengePvpDuel(params: {
     cultivator.scores.duelScore = (cultivator.scores.duelScore || 1000) + duelDelta;
     cultivator.scores.duelWins = (cultivator.scores.duelWins || 0) + 1;
     cultivator.inventory.ironOres += rewardOres;
+
+    // 论剑胜场斩获修真经验 EXP
+    const duelExp = opponent.difficulty === "HARD" ? 60 : opponent.difficulty === "MEDIUM" ? 40 : 25;
+    cultivator.exp += duelExp;
+    checkRealmProgression(cultivator);
   } else {
     duelDelta = opponent.difficulty === "EASY" ? -12 : -8;
     cultivator.scores.duelScore = Math.max(100, (cultivator.scores.duelScore || 1000) + duelDelta);
     cultivator.scores.duelLosses = (cultivator.scores.duelLosses || 0) + 1;
+
+    // 切磋论道受挫亦有所悟 (安慰经验)
+    cultivator.exp += 10;
+    checkRealmProgression(cultivator);
   }
 
   cultivator.hp = playerHp;

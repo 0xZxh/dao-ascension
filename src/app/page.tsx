@@ -694,6 +694,39 @@ export default function JadeXianxiaH5Game() {
               isDeduction: dAtk < 0,
             });
           }
+
+          // 境界等级成长突破与 EXP 增加检测
+          if (
+            nextCultivator.realm !== prevCultivator.realm ||
+            nextCultivator.realmLevel !== prevCultivator.realmLevel
+          ) {
+            xianxiaAudio.playVictory();
+            badges.push({
+              id: `realm-${Date.now()}`,
+              icon: "🌟",
+              labelZh: `${nextCultivator.realm} 突破`,
+              labelEn: "Realm Breakthrough",
+              delta: nextCultivator.realmLevel,
+              isDeduction: false,
+            });
+            triggerFloatingStat(
+              lang === "en"
+                ? `🌟 Breakthrough! Reached [${nextCultivator.realm} Lv.${nextCultivator.realmLevel}]!`
+                : `🌟 天降祥瑞！道身修为突破至【${nextCultivator.realm}·${nextCultivator.realmLevel}层】！`
+            );
+          } else {
+            const dExp = nextCultivator.exp - prevCultivator.exp;
+            if (dExp > 0) {
+              badges.push({
+                id: `exp-${Date.now()}`,
+                icon: "✨",
+                labelZh: "真元修为",
+                labelEn: "Cultivation EXP",
+                delta: dExp,
+                isDeduction: false,
+              });
+            }
+          }
         }
 
         applySnapshotFn = () => {
@@ -2366,19 +2399,41 @@ export default function JadeXianxiaH5Game() {
                 Lv.{cultivator.realmLevel}
               </span>
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-serif font-bold text-sm sm:text-base text-[#F4F9F7] tracking-widest whitespace-nowrap">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-serif font-bold text-sm sm:text-base text-[#F4F9F7] tracking-widest truncate max-w-[120px] sm:max-w-none">
                   {trDaoName(cultivator.daoName, lang)}
                 </span>
-                <span className="text-[#E5D2AB] text-[10px] font-serif border border-[#C8AA72]/50 px-1.5 py-0.2 bg-[#1A2E2A] whitespace-nowrap">
+                <span className="text-[#E5D2AB] text-[10px] font-serif border border-[#C8AA72]/50 px-1.5 py-0.2 bg-[#1A2E2A] whitespace-nowrap font-semibold">
                   {trRealm(cultivator.realm, lang)}·{cultivator.realmLevel}{t("层", "")}
                 </span>
                 <span className="px-1.5 py-0.2 bg-[#2B1F0E] border border-[#D4AF37]/60 text-[#FDE68A] font-mono text-[10.5px] font-bold whitespace-nowrap">
                   ⚔️ {t("战力", "PWR")} {cultivator.maxHp + cultivator.atk * 4}
                 </span>
               </div>
-              <div className="text-[10.5px] text-[#86ABA3] font-serif flex items-center gap-2 mt-0.5">
+
+              {/* 经验等级成长进度条 (Top EXP Progress Bar) */}
+              <div
+                className="mt-1 flex items-center gap-1.5 cursor-help"
+                title={t(
+                  `修真修为进境：${cultivator.exp} / ${cultivator.maxExp} EXP（试炼伏魔、炼制灵丹、天工铸剑、论剑演武皆可凝练真元）`,
+                  `Cultivation EXP: ${cultivator.exp} / ${cultivator.maxExp} (Trials, Farming, Forging & Duels award EXP)`
+                )}
+              >
+                <div className="w-24 sm:w-32 h-1.5 bg-[#0A1614] border border-[#C8AA72]/45 rounded-full overflow-hidden p-[0.5px] relative shadow-inner">
+                  <div
+                    className="h-full bg-gradient-to-r from-[#10B981] via-[#34D399] to-[#FDE68A] rounded-full transition-all duration-500 shadow-xs"
+                    style={{
+                      width: `${Math.min(100, Math.max(0, (cultivator.exp / (cultivator.maxExp || 1)) * 100))}%`,
+                    }}
+                  />
+                </div>
+                <span className="font-mono text-[9.5px] text-[#A2C4BD] font-bold tabular-nums whitespace-nowrap">
+                  {cultivator.exp}/{cultivator.maxExp} EXP ({Math.round((cultivator.exp / (cultivator.maxExp || 1)) * 100)}%)
+                </span>
+              </div>
+
+              <div className="text-[10px] text-[#86ABA3] font-serif flex items-center gap-2 mt-0.5">
                 <span>{t(cultivator.title, "Taixu Sect Disciple")}</span>
                 <span className="text-[#C8AA72]/50">|</span>
                 <span className="text-[#5FE3C8] font-mono">
@@ -2619,6 +2674,61 @@ export default function JadeXianxiaH5Game() {
                   }
                   size="lg"
                 />
+              </div>
+
+              {/* 境界修真等级成长与经验条 (Realm & EXP Progression Bar) */}
+              <div className="w-full bg-[#112320] border border-[#C8AA72]/60 p-2.5 my-1.5 font-serif shadow-xs">
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-1.5 py-0.2 bg-[#B8860B] text-white text-[10px] font-bold font-mono">
+                      Lv.{cultivator.realmLevel}
+                    </span>
+                    <span className="font-bold text-[#F2CE85] text-xs sm:text-sm">
+                      {trRealm(cultivator.realm, lang)} · {cultivator.realmLevel}{t("层", " Layer")}
+                    </span>
+                    {cultivator.realmLevel >= 3 && (
+                      <span className="text-[10px] text-[#5FE3C8] bg-[#163630] border border-[#52D1B2]/50 px-1 font-bold animate-pulse">
+                        {t("临近破境", "Near Breakthrough")}
+                      </span>
+                    )}
+                  </div>
+                  <div className="font-mono text-xs text-[#5FE3C8] font-bold tabular-nums">
+                    {cultivator.exp} / {cultivator.maxExp} EXP{" "}
+                    <span className="text-[10px] text-[#A2C4BD]">
+                      ({Math.round((cultivator.exp / (cultivator.maxExp || 1)) * 100)}%)
+                    </span>
+                  </div>
+                </div>
+
+                {/* 华丽经验槽 */}
+                <div className="mt-1.5 w-full h-2.5 bg-[#091412] border border-[#C8AA72]/50 rounded-full overflow-hidden p-[1px] relative shadow-inner">
+                  <div
+                    className="h-full bg-gradient-to-r from-[#059669] via-[#10B981] via-[#34D399] to-[#FDE68A] rounded-full transition-all duration-700 relative overflow-hidden"
+                    style={{
+                      width: `${Math.min(100, Math.max(0, (cultivator.exp / (cultivator.maxExp || 1)) * 100))}%`,
+                    }}
+                  >
+                    <div className="absolute inset-0 bg-white/20 animate-pulse pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* 境界突破下阶增益预览与获益提示 */}
+                <div className="mt-1.5 flex items-center justify-between text-[10px] text-[#86ABA3] border-t border-[#C8AA72]/20 pt-1">
+                  <span className="text-[#E5D2AB]">
+                    {cultivator.realmLevel >= 3
+                      ? t(
+                          "破境大圆满：下一大境界 气血+80 · 攻击+24 · 护体+8",
+                          "Next Realm: HP +80 · ATK +24 · DEF +8"
+                        )
+                      : t(
+                          "下层晋升预估：气血 +25 HP · 攻击 +8 ATK · 护体 +3 DEF",
+                          "Next Layer: HP +25 · ATK +8 · DEF +3"
+                        )}
+                  </span>
+                  <span className="text-[#5FE3C8] hidden sm:inline">
+                    {t("试炼 · 采药 · 炼器 · 演武凝练真元", "Trial/Farm/Forge gives EXP")}
+                  </span>
+                </div>
               </div>
 
               {/* 装备槽与灵根槽 (双栏 RPG 装备框) */}
