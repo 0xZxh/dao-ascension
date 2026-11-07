@@ -911,6 +911,8 @@ export function rechargeSpiritStonesWithNear(params: {
 
   store.cultivator.spiritStones += gained;
   store.treasury.totalTreasurySpiritStones += gained;
+  store.treasury.feeBreakdown.rechargeStones =
+    (store.treasury.feeBreakdown.rechargeStones || 0) + gained;
 
   const receipt = recordSessionAction(
     store,
@@ -2249,6 +2251,35 @@ export async function checkAndAutoSettleWeeklyBoards(accountId?: string): Promis
   }
 
   return { settled: false };
+}
+
+/**
+ * 校准宗门国库：剥离初始模拟注入的创世启动金 (400 灵石 / 8 NEAR)，
+ * 还原为 100% 纯玩家实际游戏行为所产生的真实资产总额。
+ */
+export function clearTreasuryGenesisFund(accountId?: string): {
+  clearedGenesisStones: number;
+  newTotalTreasuryStones: number;
+  newTotalTreasuryNear: number;
+} {
+  const store = getStore(accountId);
+  const genesis = store.treasury.feeBreakdown.initialGenesisStones || 0;
+  if (genesis > 0) {
+    store.treasury.totalTreasurySpiritStones = Math.max(
+      0,
+      Number((store.treasury.totalTreasurySpiritStones - genesis).toFixed(2))
+    );
+    store.treasury.feeBreakdown.initialGenesisStones = 0;
+    recalculateLeaderboards(store);
+    saveStoreToDisk(accountId || "qingyun-master.testnet", store);
+  }
+  return {
+    clearedGenesisStones: genesis,
+    newTotalTreasuryStones: store.treasury.totalTreasurySpiritStones,
+    newTotalTreasuryNear: Number(
+      (store.treasury.totalTreasurySpiritStones / 50).toFixed(2)
+    ),
+  };
 }
 
 // ============================================================================

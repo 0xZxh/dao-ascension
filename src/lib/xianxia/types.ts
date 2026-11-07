@@ -402,6 +402,7 @@ export interface SectTreasuryState {
     forgingFeesStones: number;
     realmEntryFeesStones: number;
     initialGenesisStones: number;
+    rechargeStones?: number;
   };
   boards: {
     slayerBoard: LeaderboardEntry[];

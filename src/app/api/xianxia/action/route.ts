@@ -4,6 +4,7 @@ import {
   challengeSecretRealmFloor,
   claimAllCelestialMails,
   claimCelestialMailAttachment,
+  clearTreasuryGenesisFund,
   createCustomCultivatorCharacter,
   equipArtifactToCultivator,
   forgeImmortalArtifact,
@@ -156,6 +157,10 @@ export async function POST(req: NextRequest) {
           accountId,
           nearAmount: Number(body.nearAmount || 1.0),
         });
+        break;
+      }
+      case "CLEAR_GENESIS_FUND": {
+        actionResult = clearTreasuryGenesisFund(accountId);
         break;
       }
       default:

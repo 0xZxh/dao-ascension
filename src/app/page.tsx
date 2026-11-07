@@ -59,6 +59,7 @@ import {
   WeeklyCountdownBadge,
   XianxiaLoadingRing,
 } from "@/components/JadeUiOrnaments";
+import { SectTreasuryModal } from "@/components/SectTreasuryModal";
 import {
   Lang,
   trArtifactName,
@@ -305,6 +306,9 @@ export default function JadeXianxiaH5Game() {
   const [isMailOpen, setIsMailOpen] = useState<boolean>(false);
   const [activeMailId, setActiveMailId] = useState<string | undefined>(undefined);
   const [isClaimingMail, setIsClaimingMail] = useState<boolean>(false);
+
+  // 宗门国库账房 · 司库总账与五三二分账弹窗状态
+  const [isTreasuryModalOpen, setIsTreasuryModalOpen] = useState<boolean>(false);
 
   // 仙乐 BGM 与游戏音效开关状态
   const [bgmPlaying, setBgmPlaying] = useState<boolean>(false);
@@ -890,6 +894,19 @@ export default function JadeXianxiaH5Game() {
       }
     } finally {
       setIsClaimingMail(false);
+    }
+  };
+
+  const handleClearGenesisFund = async () => {
+    try {
+      const data = await callGameApi({ action: "CLEAR_GENESIS_FUND" });
+      if (data?.ok) {
+        triggerFloatingStat(
+          t("🏛️ 创世保底注资已剥离，国库完全回归纯真实玩家流水！", "🏛️ Genesis seed fund removed. 100% organic!")
+        );
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -2291,6 +2308,21 @@ export default function JadeXianxiaH5Game() {
             </span>
             <span className="font-mono text-[10.5px] text-[#86ABA3]">
               -{(cultivator.financialStats?.totalNearSpent || 0.2).toFixed(1)}N / +{(cultivator.financialStats?.totalNearEarned || 0).toFixed(1)}N
+            </span>
+          </button>
+          {/* 宗门国库司库总账入口 */}
+          <button
+            type="button"
+            onClick={() => setIsTreasuryModalOpen(true)}
+            className="text-[#E0C99B] hover:text-[#FFFFFF] transition-colors flex items-center gap-1.5 px-2 py-0.5 border border-[#C8AA72]/60 bg-[#162724] shadow-xs whitespace-nowrap"
+            title="查看宗门国库现存资产、收入来源拆解与四大天榜分配实况"
+          >
+            <span className="text-xs">🏛️</span>
+            <span className="font-serif text-[11px] text-[#E0C99B] hidden md:inline">
+              {t("宗门国库", "Treasury")}
+            </span>
+            <span className="font-mono text-[10.5px] text-[#5FE3C8] font-bold">
+              {(treasury.totalTreasurySpiritStones / 50).toFixed(2)}N
             </span>
           </button>
           {/* 灵石与 NEAR 汇率指示器与充值入口 */}
@@ -3821,6 +3853,17 @@ export default function JadeXianxiaH5Game() {
                     label={t("东八区周日 24:00 (UTC+8) 定时发榜倒计时", "Sun 24:00 (UTC+8) Auto-Settle")}
                   />
 
+                  {/* 查验宗门国库账房入口 */}
+                  <button
+                    type="button"
+                    onClick={() => setIsTreasuryModalOpen(true)}
+                    className="px-2.5 py-1 bg-gradient-to-r from-[#D97706] to-[#B45309] text-white hover:from-[#B45309] hover:to-[#92400E] border border-[#FDE68A] text-xs font-serif font-bold shadow-xs flex items-center gap-1.5 transition-all"
+                    title="查验宗门国库司库总账与五三二流向明细"
+                  >
+                    <Coins className="w-3.5 h-3.5 text-[#FEF3C7]" />
+                    <span>{t("🏛️ 宗门国库账房", "🏛️ Treasury Ledger")}</span>
+                  </button>
+
                   {/* 状态徽标：天道定时发榜中，禁止玩家手动重复提取 */}
                   <div className="flex items-center gap-2 px-3 py-1 bg-[#12221F] border border-[#C8AA72]/60 text-xs font-serif shadow-xs">
                     <span className="w-2 h-2 rounded-full bg-[#52D1B2] animate-pulse" />
@@ -3850,14 +3893,24 @@ export default function JadeXianxiaH5Game() {
                     )}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleOpenMailbox}
-                  className="shrink-0 text-xs text-[#8A6828] hover:text-[#593F14] font-bold underline flex items-center gap-1"
-                >
-                  <Gift className="w-3.5 h-3.5" />
-                  <span>{t("打开传谕信箱领赏", "Open Decrees Inbox")}</span>
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsTreasuryModalOpen(true)}
+                    className="shrink-0 text-xs text-[#B45309] hover:text-[#92400E] font-bold underline flex items-center gap-1"
+                  >
+                    <Coins className="w-3.5 h-3.5" />
+                    <span>{t("查验国库收支明细", "View Revenue Breakdown")}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenMailbox}
+                    className="shrink-0 text-xs text-[#8A6828] hover:text-[#593F14] font-bold underline flex items-center gap-1"
+                  >
+                    <Gift className="w-3.5 h-3.5" />
+                    <span>{t("打开传谕信箱领赏", "Open Decrees Inbox")}</span>
+                  </button>
+                </div>
               </div>
 
               <CloudDivider className="my-2" />
@@ -4465,6 +4518,15 @@ export default function JadeXianxiaH5Game() {
         onClaimMail={handleClaimMail}
         onClaimAll={handleClaimAllMails}
         isClaiming={isClaimingMail}
+      />
+
+      {/* 6.5 宗门国库账房 · 司库总账与五三二流向明细弹窗 */}
+      <SectTreasuryModal
+        isOpen={isTreasuryModalOpen}
+        onClose={() => setIsTreasuryModalOpen(false)}
+        treasury={treasury}
+        onClearGenesisFund={handleClearGenesisFund}
+        lang={lang}
       />
 
       {/* 7. 问鼎论剑台 · 12回合对决回放弹窗 */}
