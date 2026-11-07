@@ -36,6 +36,7 @@ import {
   Volume2,
   VolumeX,
   Music,
+  HelpCircle,
 } from "lucide-react";
 import { xianxiaAudio } from "@/lib/xianxia/sound";
 import {
@@ -256,6 +257,10 @@ export default function JadeXianxiaH5Game() {
 
   // 仙资收支御道簿弹窗状态 (NEAR 投入消耗与赚取分润总账)
   const [isFinancialModalOpen, setIsFinancialModalOpen] =
+    useState<boolean>(false);
+
+  // 宗门天榜律令与五三二分账 Tips 弹窗状态 (规则收纳于 Tips 内，不堆在外面)
+  const [isTreasuryRulesTipsOpen, setIsTreasuryRulesTipsOpen] =
     useState<boolean>(false);
 
   interface LoadingTarget {
@@ -3092,7 +3097,6 @@ export default function JadeXianxiaH5Game() {
                 enTitle: "IV · Duel Arena",
                 zhSub: arenaUnlocked ? "12回合攻防 · 夺积分" : "试炼后开启",
                 enSub: arenaUnlocked ? "PVP Combat" : "Locked",
-                isNew: arenaUnlocked && activeBuilding !== "ARENA" && tutorialStage >= 6,
               },
               {
                 id: "TREASURY" as ActiveBuilding,
@@ -3106,10 +3110,11 @@ export default function JadeXianxiaH5Game() {
               },
             ].map((tab) => {
               const active = activeBuilding === tab.id;
+              // 严格限定新手指引手势：仅在未满6阶对应初引任务且未在对应仙阁时才指向目标仙阁；满6阶大成后绝不误指！
               const isTutorialTabTarget =
+                (tutorialStage >= 1 && tutorialStage <= 3 && activeBuilding !== "GARDEN" && tab.id === "GARDEN") ||
                 (tutorialStage === 4 && activeBuilding !== "FORGE" && tab.id === "FORGE") ||
-                (tutorialStage === 5 && activeBuilding !== "REALM" && tab.id === "REALM") ||
-                (tutorialStage === 6 && activeBuilding !== "ARENA" && tab.id === "ARENA");
+                (tutorialStage === 5 && activeBuilding !== "REALM" && tab.id === "REALM");
 
               return (
                 <button
@@ -3128,11 +3133,11 @@ export default function JadeXianxiaH5Game() {
                   {isTutorialTabTarget && (
                     <GuideHandPointer
                       text={
-                        tab.id === "FORGE"
+                        tab.id === "GARDEN"
+                          ? t("轻触切换至洞府灵圃", "Switch to Herb Garden")
+                          : tab.id === "FORGE"
                           ? t("轻触切换至天工剑庐", "Switch to Sword Forge")
-                          : tab.id === "REALM"
-                          ? t("轻触切换至云海试炼", "Switch to Trial Tower")
-                          : t("轻触拔剑登临论剑台", "Switch to Duel Arena")
+                          : t("轻触切换至云海试炼", "Switch to Trial Tower")
                       }
                       direction="down"
                       className="absolute -top-7 left-1/2 -translate-x-1/2"
@@ -4099,85 +4104,64 @@ export default function JadeXianxiaH5Game() {
               withTopClasp
               className="flex-1 p-5 flex flex-col justify-between min-h-[410px] border-t-0"
             >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-base font-serif font-bold text-[#253D39] tracking-wider">
-                    {t(
-                      "宗门国库 · 四大周天榜与五三二黄金分账 (50% NEAR奖池 / 30% 滚存 / 20% 开发金库)",
-                      "Sect Treasury 50/30/20 Split & Four Weekly Heaven Leaderboards"
-                    )}
-                  </h3>
-                  <p className="text-xs font-serif text-[#587570] mt-0.5">
-                    {t(
-                      `国库现储 ${(treasury.totalTreasurySpiritStones / 50).toFixed(2)} NEAR (${treasury.totalTreasurySpiritStones} 灵石)：50% (${(treasury.activeWeeklyRewardPoolStones / 50).toFixed(2)} NEAR) 分润四大天榜玩家 (诛魔30% / 论剑30% / 百草20% / 神工20%) · 30% 滚存底池 · 20% (${(treasury.activeDevOpsAllocationStones / 50).toFixed(2)} NEAR) 划拨天机阁开发运营`,
-                      `Treasury: ${(treasury.totalTreasurySpiritStones / 50).toFixed(2)} NEAR (${treasury.totalTreasurySpiritStones} Stones) — 50% Weekly Boards (Slayer 30%, Duel 30%, Alchemy 20%, Forge 20%) · 30% Reserve · 20% to Dev Vault`
-                    )}
-                  </p>
+              {/* 顶部紧凑标题与操作栏 (规则说明全部收纳至 Tips 浮窗，主界面清爽规整无堆叠) */}
+              <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2 border-b border-[#C8AA72]/40">
+                <div className="flex items-center gap-2">
+                  <CinnabarSeal text="榜" variant="square" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-serif font-bold text-[#253D39] tracking-wider">
+                        {t("太虚周天金榜", "Weekly Heaven Leaderboards")}
+                      </h3>
+                      {/* 规则与国库分账 Tips 按钮 */}
+                      <button
+                        type="button"
+                        onClick={() => setIsTreasuryRulesTipsOpen(true)}
+                        className="px-2 py-0.5 bg-[#FAF5E6] hover:bg-[#F3E8C8] text-[#8A5A12] border border-[#D4AF37]/60 text-[11px] font-serif font-bold flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                        title={t("点击查看国库五三二分账与发榜律令 Tips", "View Rules & Split Tips")}
+                      >
+                        <HelpCircle className="w-3.5 h-3.5 text-[#B45309]" />
+                        <span>{t("天榜律令 Tips", "Rules & Tips")}</span>
+                      </button>
+                    </div>
+                    <div className="text-[11px] font-serif text-[#668580] mt-0.5 flex items-center gap-2">
+                      <span>💎 {t("周俸总池:", "Weekly Pool:")}</span>
+                      <span className="font-mono font-bold text-[#B45309]">
+                        {(treasury.activeWeeklyRewardPoolStones / 50).toFixed(2)} NEAR ({treasury.activeWeeklyRewardPoolStones} {t("灵石", "Stones")})
+                      </span>
+                      <span className="text-[#C8AA72]/60">|</span>
+                      <span>{t("前四席享 50%/25%/15%/10% 分润", "Top 4 share 50/25/15/10%")}</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2.5">
+                <div className="flex flex-wrap items-center gap-2">
                   {/* 周榜东八区周日24点倒计时 */}
                   <WeeklyCountdownBadge
                     targetIsoUtc={treasury.nextWeeklySettlementUtc8}
-                    label={t("东八区周日 24:00 (UTC+8) 定时发榜倒计时", "Sun 24:00 (UTC+8) Auto-Settle")}
+                    label={t("发榜倒计时", "Auto-Settle")}
                   />
 
                   {/* 查验宗门国库账房入口 */}
                   <button
                     type="button"
                     onClick={() => setIsTreasuryModalOpen(true)}
-                    className="px-2.5 py-1 bg-gradient-to-r from-[#D97706] to-[#B45309] text-white hover:from-[#B45309] hover:to-[#92400E] border border-[#FDE68A] text-xs font-serif font-bold shadow-xs flex items-center gap-1.5 transition-all"
+                    className="px-2.5 py-1 bg-gradient-to-r from-[#D97706] to-[#B45309] text-white hover:from-[#B45309] hover:to-[#92400E] border border-[#FDE68A] text-xs font-serif font-bold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
                     title="查验宗门国库司库总账与五三二流向明细"
                   >
                     <Coins className="w-3.5 h-3.5 text-[#FEF3C7]" />
-                    <span>{t("🏛️ 宗门国库账房", "🏛️ Treasury Ledger")}</span>
+                    <span>{t("国库账房", "Treasury")}</span>
                   </button>
 
-                  {/* 状态徽标：天道定时发榜中，禁止玩家手动重复提取 */}
-                  <div className="flex items-center gap-2 px-3 py-1 bg-[#12221F] border border-[#C8AA72]/60 text-xs font-serif shadow-xs">
-                    <span className="w-2 h-2 rounded-full bg-[#52D1B2] animate-pulse" />
-                    <span className="text-[#E0C99B] font-semibold">
-                      {t("天道定时清算中", "Scheduled Auto-Distribution")}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleOpenMailbox}
-                      className="ml-1 text-[11px] text-[#5FE3C8] hover:text-[#FFFFFF] underline transition flex items-center gap-1"
-                    >
-                      <Mail className="w-3 h-3" />
-                      <span>{t("查收天阙传谕", "View Decrees")}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* 定时发榜与邮件领赏说明卡片 */}
-              <div className="mt-2.5 mb-1 px-3 py-1.5 bg-[#FBF6EA] border border-[#C8AA72]/45 text-xs font-serif text-[#664D24] flex flex-wrap items-center justify-between gap-2">
-                <div className="flex-1 min-w-[280px] flex items-center gap-1.5 leading-relaxed">
-                  <CinnabarSeal text="律" variant="rect" />
-                  <span>
-                    {t(
-                      "【四大周天榜清算机制】每周日 24:00 (UTC+8) 准时由天道自动结算并向【天阙传谕】下发周俸，禁止手动重复提取国库。",
-                      "Four weekly boards settle automatically every Sun 24:00 (UTC+8). Rewards arrive via Decrees Mail, preventing duplicate manual exploitation."
-                    )}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsTreasuryModalOpen(true)}
-                    className="shrink-0 text-xs text-[#B45309] hover:text-[#92400E] font-bold underline flex items-center gap-1"
-                  >
-                    <Coins className="w-3.5 h-3.5" />
-                    <span>{t("查验国库收支明细", "View Revenue Breakdown")}</span>
-                  </button>
+                  {/* 查收天阙传谕信箱入口 */}
                   <button
                     type="button"
                     onClick={handleOpenMailbox}
-                    className="shrink-0 text-xs text-[#8A6828] hover:text-[#593F14] font-bold underline flex items-center gap-1"
+                    className="px-2.5 py-1 bg-[#12221F] hover:bg-[#1A332E] text-[#5FE3C8] hover:text-[#FFFFFF] border border-[#C8AA72]/60 text-xs font-serif font-bold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                    title="查收天道自动下达的周结算法旨与周俸附件"
                   >
-                    <Gift className="w-3.5 h-3.5" />
-                    <span>{t("打开传谕信箱领赏", "Open Decrees Inbox")}</span>
+                    <Mail className="w-3.5 h-3.5 text-[#5FE3C8]" />
+                    <span>{t("天阙传谕", "Decrees Inbox")}</span>
                   </button>
                 </div>
               </div>
@@ -5515,6 +5499,102 @@ export default function JadeXianxiaH5Game() {
                     <span>{t("再次挑战此重", "Try Again")}</span>
                   </button>
                 )}
+              </div>
+            </JadeGlassPanel>
+          </div>
+        </div>
+      )}
+
+      {/* 宗门天榜律令与国库五三二分账 Tips 弹窗 (按用户要求：规则与说明收纳于 Tips 弹窗，主界面清爽规整) */}
+      {isTreasuryRulesTipsOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-xs animate-fadeIn"
+          onClick={() => setIsTreasuryRulesTipsOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg"
+          >
+            <JadeGlassPanel
+              withTopClasp
+              withTassels
+              className="p-5 sm:p-6 font-serif shadow-2xl border-2 border-[#C8AA72] !bg-[#FFFDF7] text-[#253D39]"
+            >
+              {/* 弹窗顶栏 */}
+              <div className="flex items-center justify-between pb-3 border-b border-[#C8AA72]/50">
+                <div className="flex items-center gap-2">
+                  <CinnabarSeal text="律" variant="rect" />
+                  <h3 className="text-base sm:text-lg font-bold text-[#253D39] tracking-wider">
+                    {t("宗门天榜 · 天道律令与分账说明 (Tips)", "Heaven Leaderboards & Treasury Rules")}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsTreasuryRulesTipsOpen(false)}
+                  className="text-[#64827D] hover:text-[#253D39] transition-colors p-1 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* 核心要点卡片组 */}
+              <div className="mt-3.5 space-y-3 text-xs sm:text-[13px] leading-relaxed">
+                {/* 1. 五三二分账 */}
+                <div className="p-3 bg-[#FAF6EC] border border-[#C8AA72]/60 shadow-2xs">
+                  <div className="font-bold text-[#8A5A12] flex items-center gap-1.5 mb-1 text-sm">
+                    <span>🏛️</span>
+                    <span>{t("国库五三二黄金分账", "Treasury 50/30/20 Distribution")}</span>
+                  </div>
+                  <div className="text-[#4D3A1B] space-y-1">
+                    <p>
+                      • <strong>50% 周天奖池</strong>：全额注入四大周天榜（诛魔 30%、论剑 30%、百草 20%、神工 20%），每周日 24:00 结算分润。
+                    </p>
+                    <p>
+                      • <strong>30% 滚存底池</strong>：常设留存于宗门国库储备金池中，保障代币经济持续滚存。
+                    </p>
+                    <p>
+                      • <strong>20% 开发金库</strong>：划拨九天玄机阁用于智能合约运维、节点算力与系统研发。
+                    </p>
+                  </div>
+                </div>
+
+                {/* 2. 定时清算发俸 */}
+                <div className="p-3 bg-[#F0F7F5] border border-[#7BB5A8]/60 shadow-2xs">
+                  <div className="font-bold text-[#1F5448] flex items-center gap-1.5 mb-1 text-sm">
+                    <span>⏰</span>
+                    <span>{t("天道定时清算机制", "Scheduled Auto-Distribution")}</span>
+                  </div>
+                  <p className="text-[#253D39]">
+                    每周日 24:00 (东八区周一 00:00 UTC+8) 准时由天道自动结算清算，周俸（NEAR 与灵石）直发至【天阙传谕】信箱，免除手动领取的繁琐并杜绝重复提取。
+                  </p>
+                </div>
+
+                {/* 3. 每周重置机制 */}
+                <div className="p-3 bg-[#FFF5F5] border border-[#DC2626]/40 shadow-2xs">
+                  <div className="font-bold text-[#991B1B] flex items-center gap-1.5 mb-1 text-sm">
+                    <span>🔄</span>
+                    <span>{t("周天发榜后全员重置", "Weekly Reset Rule")}</span>
+                  </div>
+                  <p className="text-[#7F1D1D]">
+                    每周结算法旨送达后，四大天榜周参与进度（云海试炼层数、采药株数、演武积分、铸剑功勋）全部归零重置。新周全员从起跑线重新打榜争雄！永久历史通关层数不受影响，化形皮肤解锁永久保留。
+                  </p>
+                </div>
+
+                {/* 4. 席位分润阶梯 */}
+                <div className="p-2.5 bg-[#FFFDF7] border border-[#C8AA72]/50 text-center font-mono font-bold text-[#8A5A12] text-xs shadow-2xs">
+                  🏆 魁首独揽 50% 榜池 · 🥈 榜眼 25% · 🥉 探花 15% · 肆·进士 10%
+                </div>
+              </div>
+
+              {/* 弹窗底部操作 */}
+              <div className="mt-4 pt-3 border-t border-[#C8AA72]/40 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsTreasuryRulesTipsOpen(false)}
+                  className="px-4 py-1.5 text-xs font-serif font-bold text-[#3B544F] border border-[#C8AA72]/60 bg-white hover:bg-[#FAF6EC] shadow-2xs cursor-pointer"
+                >
+                  {t("弟子知悉", "Understood")}
+                </button>
               </div>
             </JadeGlassPanel>
           </div>
