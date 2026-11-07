@@ -999,6 +999,16 @@ export function CelestialMailModal({
                     </div>
 
                     <div className="flex flex-wrap gap-2">
+                      {currentMail.attachments.nearAmount !== undefined && currentMail.attachments.nearAmount > 0 && (
+                        <div className="px-3 py-1 bg-[#101E1B] border border-[#5FE3C8]/60 flex items-center gap-1.5 shadow-xs">
+                          <span className="text-xs font-serif text-[#C8E8DF]">
+                            💎 NEAR 周俸:
+                          </span>
+                          <span className="font-mono font-bold text-sm text-[#5FE3C8] tabular-nums">
+                            +{currentMail.attachments.nearAmount} NEAR
+                          </span>
+                        </div>
+                      )}
                       {currentMail.attachments.spiritStones && (
                         <div className="px-3 py-1 bg-white border border-[#C8AA72] flex items-center gap-1.5 shadow-xs">
                           <span className="text-xs font-serif text-[#4A3414]">

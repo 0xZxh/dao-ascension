@@ -946,6 +946,7 @@ function buildBoardEntries(
     isPlayer: boolean;
     score: number;
     metricLabel: string;
+    avatarClass?: "saintess" | "sword" | "venerable" | "fox" | "demon";
   }>,
   boardPoolStones: number
 ): LeaderboardEntry[] {
@@ -965,15 +966,18 @@ function buildBoardEntries(
   return sorted.map((item, idx) => {
     const share = weights[idx] ?? 0;
     const rewardStones = Number((boardPoolStones * share).toFixed(2));
+    const rewardNear = Number((rewardStones / 50).toFixed(2));
     return {
       rank: idx + 1,
       daoName: item.daoName,
       subAccountId: item.subAccountId,
       isPlayer: item.isPlayer,
+      avatarClass: item.avatarClass || "saintess",
       score: item.score,
       metricLabel: item.metricLabel,
       sharePct: Math.round(share * 100),
       estimatedRewardStones: rewardStones,
+      estimatedRewardNear: rewardNear,
       estimatedRewardUsd: Number(
         (rewardStones * SPIRIT_STONE_USD_RATE).toFixed(2)
       ),
@@ -1035,6 +1039,7 @@ function recalculateLeaderboards(store: InternalStore): void {
         daoName: c.daoName,
         subAccountId: c.boundSubAccountId,
         isPlayer: c.boundSubAccountId === cultivator.boundSubAccountId,
+        avatarClass: c.avatarClass || "sword",
         score: floors,
         metricLabel: floors > 0 ? `第 ${floors} 层` : "0 层",
       };
@@ -1051,6 +1056,7 @@ function recalculateLeaderboards(store: InternalStore): void {
         daoName: c.daoName,
         subAccountId: c.boundSubAccountId,
         isPlayer: c.boundSubAccountId === cultivator.boundSubAccountId,
+        avatarClass: c.avatarClass || "saintess",
         score: harvested,
         metricLabel: `收获 ${harvested} 株`,
       };
@@ -1067,6 +1073,7 @@ function recalculateLeaderboards(store: InternalStore): void {
         daoName: c.daoName,
         subAccountId: c.boundSubAccountId,
         isPlayer: c.boundSubAccountId === cultivator.boundSubAccountId,
+        avatarClass: c.avatarClass || "venerable",
         score: totalPower,
         metricLabel: `${totalPower} 战力`,
       };
@@ -1082,6 +1089,7 @@ function recalculateLeaderboards(store: InternalStore): void {
         daoName: c.daoName,
         subAccountId: c.boundSubAccountId,
         isPlayer: c.boundSubAccountId === cultivator.boundSubAccountId,
+        avatarClass: c.avatarClass || "demon",
         score: duelScore,
         metricLabel: `${duelScore} 分`,
       };
@@ -2077,6 +2085,7 @@ export async function settleWeeklyHeavenLeaderboards(params?: {
       duelRewardStones
     ).toFixed(2)
   );
+  const totalPlayerRewardNear = Number((totalPlayerRewardStones / 50).toFixed(2));
   const totalPlayerRewardUsd = Number(
     Math.max(1.5, totalPlayerRewardStones * SPIRIT_STONE_USD_RATE).toFixed(2)
   );
@@ -2089,6 +2098,15 @@ export async function settleWeeklyHeavenLeaderboards(params?: {
     cultivator.spiritStones = Number(
       (cultivator.spiritStones + totalPlayerRewardStones).toFixed(2)
     );
+    if (totalPlayerRewardNear > 0) {
+      recordFinancialEntry(cultivator, {
+        type: "WEEKLY_DIVIDEND",
+        titleZh: `第 ${treasury.currentEpoch} 周四大天榜周俸分润 (+${totalPlayerRewardNear} NEAR)`,
+        titleEn: `Weekly Dividend Epoch ${treasury.currentEpoch} (+${totalPlayerRewardNear} NEAR)`,
+        nearDelta: totalPlayerRewardNear,
+        stonesDelta: totalPlayerRewardStones,
+      });
+    }
   }
 
   const destChain = params?.destinationChain || "sol";
@@ -2146,11 +2164,13 @@ export async function settleWeeklyHeavenLeaderboards(params?: {
   const receipt = recordSessionAction(
     store,
     "settle_weekly_heaven_board",
-    `第 ${settlement.epochNumber} 周宗门天榜结算！国库提取 50% (${extractedRewardPoolStones} 灵石) 分润至四大天榜，${cultivator.daoName} 共斩获 +${totalPlayerRewardStones} 灵石 ($${totalPlayerRewardUsd})，天阙传谕法旨与 NEAR Intents 跨链承兑凭证已下达至信箱`,
+    `第 ${settlement.epochNumber} 周宗门天榜结算！国库提取 50% (${extractedRewardPoolStones} 灵石 ≈ ${(extractedRewardPoolStones / 50).toFixed(2)} NEAR) 分润至四大天榜，${cultivator.daoName} 共斩获 +${totalPlayerRewardNear} NEAR (${totalPlayerRewardStones} 灵石 / $${totalPlayerRewardUsd})，天阙传谕法旨与 NEAR Intents 跨链承兑凭证已下达至信箱`,
     {
       settlement_id: settlementId,
       extracted_pool_stones: extractedRewardPoolStones,
+      extracted_pool_near: Number((extractedRewardPoolStones / 50).toFixed(2)),
       player_total_stones: totalPlayerRewardStones,
+      player_total_near: totalPlayerRewardNear,
       intents_dest: `${crossChainPayoutQuote.amountOutFormatted} (${crossChainPayoutQuote.destinationChain})`,
       nep413_hash: crossChainPayoutQuote.nep413SignedIntent.intentHash,
     }
@@ -2158,28 +2178,30 @@ export async function settleWeeklyHeavenLeaderboards(params?: {
 
   // 下发【天阙传谕】周结算法旨邮件
   const mailId = `mail-epoch-${settlement.epochNumber}-${crypto.randomBytes(3).toString("hex")}`;
+  const extractedPoolNear = Number((extractedRewardPoolStones / 50).toFixed(2));
   const settlementMail: CelestialMailItem = {
     id: mailId,
     title: `【天阙传谕】第 ${settlement.epochNumber} 周四大天榜周俸结算法旨`,
     sender: "九天玄机阁 · 国库执事长老",
     category: "SETTLEMENT",
     content: `奉太虚玉清律令：东八区周日 24:00 (周一 00:00 UTC+8) 已届，宗门国库依五三二黄金分账规约清算完毕。
-本周国库总储 ${totalTreasuryBefore} 灵石，提取五成（${extractedRewardPoolStones} 灵石）全额注入四大周天榜奖池：
-- 诛魔天榜（三成池）：道友斩妖卫道，获赐 ${slayerRewardStones} 灵石；
-- 百草药圣榜（两成池）：道友精炼灵丹，获赐 ${alchemyRewardStones} 灵石；
-- 神工天匠榜（两成池）：道友神工铸剑，获赐 ${blacksmithRewardStones} 灵石；
-- 问鼎论剑榜（三成池）：道友论剑演武，获赐 ${duelRewardStones} 灵石；
+本周国库总储 ${totalTreasuryBefore} 灵石 (${(totalTreasuryBefore / 50).toFixed(2)} NEAR)，提取五成（${extractedRewardPoolStones} 灵石 ≈ ${extractedPoolNear} NEAR）全额注入四大周天榜奖池：
+- 诛魔天榜（三成池）：道友斩妖卫道，获赐 ${(slayerRewardStones / 50).toFixed(2)} NEAR (${slayerRewardStones} 灵石)；
+- 百草药圣榜（两成池）：道友精炼灵丹，获赐 ${(alchemyRewardStones / 50).toFixed(2)} NEAR (${alchemyRewardStones} 灵石)；
+- 神工天匠榜（两成池）：道友神工铸剑，获赐 ${(blacksmithRewardStones / 50).toFixed(2)} NEAR (${blacksmithRewardStones} 灵石)；
+- 问鼎论剑榜（三成池）：道友论剑演武，获赐 ${(duelRewardStones / 50).toFixed(2)} NEAR (${duelRewardStones} 灵石)；
 
-道友本周合计斩获周俸：${totalPlayerRewardStones} 灵石 ($${totalPlayerRewardUsd})！
+道友本周合计斩获周俸：+${totalPlayerRewardNear} NEAR (${totalPlayerRewardStones} 灵石 / $${totalPlayerRewardUsd})！
 同时已调用 NEAR Intents 协议签发跨链承兑单 (${crossChainPayoutQuote.amountOutFormatted} on ${crossChainPayoutQuote.destinationChain.toUpperCase()})。
 天机阁已划拨 ${devOpsAllocatedStones} 灵石 ($${devOpsAllocatedUsd}) 入开发运营金库，护佑宗门长青。
 
-灵石奖赏已备于下方谕牒附件，请道友速速领赏入包，并生成 NEP-413 链上永固凭证！`,
+周俸仙资 (NEAR + 灵石) 已备于下方谕牒附件，请道友速速领赏入包，并生成 NEP-413 链上永固凭证！`,
     createdAt: new Date().toISOString(),
     isRead: false,
     isClaimed: shouldAutoClaim,
     attachments: {
       spiritStones: totalPlayerRewardStones,
+      nearAmount: totalPlayerRewardNear,
       crossChainIntentQuote: crossChainPayoutQuote,
     },
     txHash: receipt.txHash,
@@ -2191,7 +2213,7 @@ export async function settleWeeklyHeavenLeaderboards(params?: {
 
   store.elderCounsel = {
     ...store.elderCounsel,
-    message: `钟鸣九响，天榜发榜！本座已从宗门国库提取 50% 灵石池完成第 ${settlement.epochNumber} 期三大周天榜结算，道友三榜合算获赐 +${totalPlayerRewardStones} 灵石，结算法旨已飞剑传书送达【天阙传谕】，请道友速往信箱领受俸禄！`,
+    message: `钟鸣九响，天榜发榜！本座已从宗门国库提取 50% 灵石池完成第 ${settlement.epochNumber} 期四大周天榜结算，道友合算获赐 +${totalPlayerRewardNear} NEAR (${totalPlayerRewardStones} 灵石)，结算法旨已飞剑传书送达【天阙传谕】，请道友速往信箱领受俸禄！`,
     timestamp: new Date().toISOString(),
   };
 

@@ -355,6 +355,8 @@ export interface LeaderboardEntry {
   sharePct: number;
   estimatedRewardStones: number;
   estimatedRewardUsd: number;
+  avatarClass?: "saintess" | "sword" | "venerable" | "fox" | "demon";
+  estimatedRewardNear?: number;
 }
 
 export interface WeeklySettlementRecord {

@@ -3802,14 +3802,14 @@ export default function JadeXianxiaH5Game() {
                 <div>
                   <h3 className="text-base font-serif font-bold text-[#253D39] tracking-wider">
                     {t(
-                      "宗门国库 · 四大周天榜与五三二黄金分账 (50% 奖池 / 30% 滚存 / 20% 开发金库)",
+                      "宗门国库 · 四大周天榜与五三二黄金分账 (50% NEAR奖池 / 30% 滚存 / 20% 开发金库)",
                       "Sect Treasury 50/30/20 Split & Four Weekly Heaven Leaderboards"
                     )}
                   </h3>
                   <p className="text-xs font-serif text-[#587570] mt-0.5">
                     {t(
-                      `国库现储 ${treasury.totalTreasurySpiritStones} 灵石：50% (${treasury.activeWeeklyRewardPoolStones} 石) 分润四大天榜玩家 (诛魔30% / 论剑30% / 百草20% / 神工20%) · 30% 滚存底池 · 20% (${treasury.activeDevOpsAllocationStones} 石) 划拨天机阁开发运营`,
-                      `Treasury: ${treasury.totalTreasurySpiritStones} Stones — 50% Weekly Boards (Slayer 30%, Duel 30%, Alchemy 20%, Forge 20%) · 30% Reserve · 20% to Dev Vault`
+                      `国库现储 ${(treasury.totalTreasurySpiritStones / 50).toFixed(2)} NEAR (${treasury.totalTreasurySpiritStones} 灵石)：50% (${(treasury.activeWeeklyRewardPoolStones / 50).toFixed(2)} NEAR) 分润四大天榜玩家 (诛魔30% / 论剑30% / 百草20% / 神工20%) · 30% 滚存底池 · 20% (${(treasury.activeDevOpsAllocationStones / 50).toFixed(2)} NEAR) 划拨天机阁开发运营`,
+                      `Treasury: ${(treasury.totalTreasurySpiritStones / 50).toFixed(2)} NEAR (${treasury.totalTreasurySpiritStones} Stones) — 50% Weekly Boards (Slayer 30%, Duel 30%, Alchemy 20%, Forge 20%) · 30% Reserve · 20% to Dev Vault`
                     )}
                   </p>
                 </div>
@@ -4000,7 +4000,7 @@ export default function JadeXianxiaH5Game() {
                                   active ? "text-[#FDE68A] font-bold" : "text-[#8A6828] font-bold"
                                 }
                               >
-                                💎 {b.poolStones} {t("灵石", "Stones")}
+                                💎 {(b.poolStones / 50).toFixed(2)} NEAR ({b.poolStones} {t("石", "S")})
                               </span>
                               <span
                                 className={`text-[10px] font-serif ${
@@ -4025,8 +4025,8 @@ export default function JadeXianxiaH5Game() {
                           <div className="text-sm font-bold text-[#253D39] flex flex-wrap items-center gap-2">
                             <span>{targetBoard.title}</span>
                             <span className="text-xs font-mono px-2 py-0.5 bg-[#FEF3C7] border border-[#F59E0B]/50 text-[#92400E] font-bold">
-                              💎 {t("本榜周俸池:", "Board Pool:")} {targetBoard.poolStones}{" "}
-                              {t("灵石", "Stones")}
+                              💎 {t("本榜周俸池:", "Board Pool:")} {(targetBoard.poolStones / 50).toFixed(2)} NEAR ({targetBoard.poolStones}{" "}
+                              {t("灵石", "Stones")})
                             </span>
                           </div>
                           <div className="text-xs text-[#5C7A74] mt-0.5">{targetBoard.sub}</div>
@@ -4037,7 +4037,7 @@ export default function JadeXianxiaH5Game() {
                           <span className="text-xs font-serif bg-[#162925] text-[#F2CE85] px-3 py-1 border border-[#C8AA72] font-bold">
                             {t("贫道当前位次:", "Your Rank:")} #{playerEntry.rank}（{playerEntry.metricLabel} ·{" "}
                             {playerEntry.estimatedRewardStones > 0
-                              ? `+${playerEntry.estimatedRewardStones}${t("灵石", "S")}`
+                              ? `+${(playerEntry.estimatedRewardNear || playerEntry.estimatedRewardStones / 50).toFixed(2)} NEAR (${playerEntry.estimatedRewardStones}${t("灵石", "S")})`
                               : t("候补冲榜", "Waitlist")}
                             ）
                           </span>
@@ -4056,14 +4056,24 @@ export default function JadeXianxiaH5Game() {
                         {top2 ? (
                           <div className="w-full flex flex-col items-center">
                             <Medal className="w-5 h-5 text-[#64748B] mb-0.5" />
-                            <div className="text-xs sm:text-sm font-bold text-[#1E293B] truncate max-w-[130px] text-center">
-                              {trDaoName(top2.daoName, lang)}
+                            <div className="flex items-center gap-1 max-w-[130px]">
+                              <img
+                                src={resolveCharacterConfig(top2.avatarClass || "sword").imageSrc}
+                                alt="avatar"
+                                className="w-5 h-5 rounded-full border border-[#94A3B8] object-cover shrink-0 shadow-2xs"
+                              />
+                              <span className="text-xs sm:text-sm font-bold text-[#1E293B] truncate">
+                                {trDaoName(top2.daoName, lang)}
+                              </span>
                             </div>
                             <div className="text-[11px] font-mono font-bold text-[#475569] bg-white px-2 py-0.5 border border-[#CBD5E1] my-1">
                               {top2.metricLabel}
                             </div>
-                            <div className="text-xs font-mono font-bold text-[#14532D] mb-1">
-                              +{top2.estimatedRewardStones}{t("灵石", "S")} ({top2.sharePct}%)
+                            <div className="text-xs font-mono font-bold text-[#14532D] mb-1 text-center">
+                              +{(top2.estimatedRewardNear || top2.estimatedRewardStones / 50).toFixed(2)} NEAR ({top2.sharePct}%)
+                              <span className="text-[10px] text-[#64748B] block">
+                                ({top2.estimatedRewardStones} {t("灵石", "S")})
+                              </span>
                             </div>
                           </div>
                         ) : (
@@ -4081,12 +4091,17 @@ export default function JadeXianxiaH5Game() {
                         {top1 ? (
                           <div className="w-full flex flex-col items-center relative">
                             <Crown className="w-7 h-7 text-[#D4AF37] fill-[#D4AF37] mb-0.5 animate-bounce" />
-                            <div className="flex items-center gap-1">
-                              <span className="text-sm sm:text-base font-bold text-[#422D0B] truncate max-w-[140px]">
+                            <div className="flex items-center gap-1.5 max-w-[150px]">
+                              <img
+                                src={resolveCharacterConfig(top1.avatarClass || "saintess").imageSrc}
+                                alt="avatar"
+                                className="w-6 h-6 rounded-full border border-[#D4AF37] object-cover shrink-0 shadow-2xs ring-1 ring-[#D4AF37]/50"
+                              />
+                              <span className="text-sm sm:text-base font-bold text-[#422D0B] truncate">
                                 {trDaoName(top1.daoName, lang)}
                               </span>
                               {top1.isPlayer && (
-                                <span className="text-[10px] bg-[#B8860B] text-white px-1.5 py-0.2 font-bold">
+                                <span className="text-[10px] bg-[#B8860B] text-white px-1.5 py-0.2 font-bold shrink-0">
                                   {t("本人", "YOU")}
                                 </span>
                               )}
@@ -4094,8 +4109,11 @@ export default function JadeXianxiaH5Game() {
                             <div className="text-xs font-mono font-bold text-[#8A5A12] bg-[#FEF3C7] px-2.5 py-0.5 border border-[#F59E0B]/60 my-1 shadow-2xs">
                               {top1.metricLabel}
                             </div>
-                            <div className="text-xs sm:text-sm font-mono font-bold text-[#14532D] mb-1">
-                              +{top1.estimatedRewardStones}{t("灵石", "S")} ({top1.sharePct}%)
+                            <div className="text-xs sm:text-sm font-mono font-bold text-[#14532D] mb-1 text-center">
+                              +{(top1.estimatedRewardNear || top1.estimatedRewardStones / 50).toFixed(2)} NEAR ({top1.sharePct}%)
+                              <span className="text-[10px] text-[#8A5A12] block">
+                                ({top1.estimatedRewardStones} {t("灵石", "S")})
+                              </span>
                             </div>
                           </div>
                         ) : (
@@ -4116,14 +4134,24 @@ export default function JadeXianxiaH5Game() {
                         {top3 ? (
                           <div className="w-full flex flex-col items-center">
                             <Medal className="w-5 h-5 text-[#8D6E63] mb-0.5" />
-                            <div className="text-xs sm:text-sm font-bold text-[#3E2723] truncate max-w-[130px] text-center">
-                              {trDaoName(top3.daoName, lang)}
+                            <div className="flex items-center gap-1 max-w-[130px]">
+                              <img
+                                src={resolveCharacterConfig(top3.avatarClass || "venerable").imageSrc}
+                                alt="avatar"
+                                className="w-5 h-5 rounded-full border border-[#8D6E63] object-cover shrink-0 shadow-2xs"
+                              />
+                              <span className="text-xs sm:text-sm font-bold text-[#3E2723] truncate">
+                                {trDaoName(top3.daoName, lang)}
+                              </span>
                             </div>
                             <div className="text-[11px] font-mono font-bold text-[#5D4037] bg-white px-2 py-0.5 border border-[#D7CCC8] my-1">
                               {top3.metricLabel}
                             </div>
-                            <div className="text-xs font-mono font-bold text-[#14532D] mb-1">
-                              +{top3.estimatedRewardStones}{t("灵石", "S")} ({top3.sharePct}%)
+                            <div className="text-xs font-mono font-bold text-[#14532D] mb-1 text-center">
+                              +{(top3.estimatedRewardNear || top3.estimatedRewardStones / 50).toFixed(2)} NEAR ({top3.sharePct}%)
+                              <span className="text-[10px] text-[#8D6E63] block">
+                                ({top3.estimatedRewardStones} {t("灵石", "S")})
+                              </span>
                             </div>
                           </div>
                         ) : (
@@ -4143,7 +4171,7 @@ export default function JadeXianxiaH5Game() {
                         <div className="col-span-3">{t("天榜席位", "Heaven Seat")}</div>
                         <div className="col-span-4">{t("上榜道友道号", "Cultivator Name")}</div>
                         <div className="col-span-2 text-center">{targetBoard.metricName}</div>
-                        <div className="col-span-3 text-right">{t("预计周俸分润", "Weekly Dividend")}</div>
+                        <div className="col-span-3 text-right">{t("预计周俸分润 (NEAR)", "Weekly Dividend (NEAR)")}</div>
                       </div>
 
                       <div className="divide-y divide-[#C8AA72]/30">
@@ -4170,6 +4198,11 @@ export default function JadeXianxiaH5Game() {
                               <div className="col-span-4 flex items-center gap-2 min-w-0 pr-2">
                                 {entry ? (
                                   <>
+                                    <img
+                                      src={resolveCharacterConfig(entry.avatarClass || "saintess").imageSrc}
+                                      alt="avatar"
+                                      className="w-6 h-6 rounded-full border border-[#C8AA72] object-cover shrink-0 shadow-2xs"
+                                    />
                                     <span className="font-bold text-[#253D39] truncate">
                                       {trDaoName(entry.daoName, lang)}
                                     </span>
@@ -4200,12 +4233,17 @@ export default function JadeXianxiaH5Game() {
 
                               <div className="col-span-3 text-right font-mono">
                                 {entry ? (
-                                  <span className="font-bold text-[#14532D] text-xs sm:text-sm tabular-nums">
-                                    +{entry.estimatedRewardStones} {t("灵石", "Stones")}{" "}
-                                    <span className="text-xs text-[#92400E]">
-                                      ({entry.sharePct}%)
+                                  <div className="flex flex-col items-end">
+                                    <span className="font-bold text-[#14532D] text-xs sm:text-sm tabular-nums">
+                                      +{(entry.estimatedRewardNear || entry.estimatedRewardStones / 50).toFixed(2)} NEAR{" "}
+                                      <span className="text-xs text-[#92400E]">
+                                        ({entry.sharePct}%)
+                                      </span>
                                     </span>
-                                  </span>
+                                    <span className="text-[10px] text-[#8A5A12] tabular-nums">
+                                      ({entry.estimatedRewardStones} {t("灵石", "Stones")})
+                                    </span>
+                                  </div>
                                 ) : (
                                   <span className="text-xs text-[#64827D]">
                                     {t(`享池内 ${meta.shareDefault}% 分润`, `${meta.shareDefault}% Pool Share`)}
@@ -4225,8 +4263,13 @@ export default function JadeXianxiaH5Game() {
                             <div className="col-span-3 font-mono font-bold text-[#786646]">
                               #{e.rank} {t("候补席", "Waitlist")}
                             </div>
-                            <div className="col-span-4 truncate font-semibold text-[#253D39]">
-                              {trDaoName(e.daoName, lang)}
+                            <div className="col-span-4 flex items-center gap-1.5 truncate font-semibold text-[#253D39]">
+                              <img
+                                src={resolveCharacterConfig(e.avatarClass || "saintess").imageSrc}
+                                alt="avatar"
+                                className="w-5 h-5 rounded-full border border-[#C8AA72]/60 object-cover shrink-0"
+                              />
+                              <span className="truncate">{trDaoName(e.daoName, lang)}</span>
                             </div>
                             <div className="col-span-2 text-center font-mono font-bold text-[#8A6828]">
                               {e.metricLabel}
