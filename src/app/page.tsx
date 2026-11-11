@@ -1697,6 +1697,11 @@ export default function JadeXianxiaH5Game() {
         {/* 顶部极窄通栏 (Top 36px System Bar) */}
         <div className="w-full fixed top-0 left-0 right-0 z-40 xianxia-dark-bar h-9 flex items-center justify-between px-4 sm:px-8 text-xs">
           <div className="flex items-center gap-3">
+            <img
+              src="/logo.png"
+              alt={t("仙途寻道", "DaoAscension")}
+              className="site-logo h-[22px] w-[22px] shrink-0"
+            />
             <span className="text-[#C8AA72] font-serif font-bold tracking-widest text-[13px]">
               太虚仙宗 · 问道天关
             </span>
@@ -1726,11 +1731,11 @@ export default function JadeXianxiaH5Game() {
             </button>
             <span className="text-[#4F736C]">|</span>
             <Link
-              href="/guide"
+              href={lang === "en" ? "/guide?lang=en" : "/guide"}
               className="text-[#C8AA72] hover:text-[#FFFFFF] transition-colors flex items-center gap-1.5"
             >
               <BookOpen className="w-3.5 h-3.5" />
-              <span>{t("玩法与经济指南", "Guide & Tokenomics")}</span>
+              <span>{t("产品介绍", "Product")}</span>
             </Link>
             <span className="text-[#4F736C]">|</span>
             <button
@@ -2289,6 +2294,11 @@ export default function JadeXianxiaH5Game() {
       {/* 1. 顶部极窄通栏 (Top 36px System Bar，含古琴仙乐与战斗音效开关) */}
       <div className="w-full fixed top-0 left-0 right-0 z-40 xianxia-dark-bar h-9 flex items-center justify-between px-3 sm:px-8 text-xs">
         <div className="flex items-center gap-2.5">
+          <img
+            src="/logo.png"
+            alt={t("仙途寻道", "DaoAscension")}
+            className="site-logo h-[22px] w-[22px] shrink-0"
+          />
           <span className="text-[#C8AA72] font-serif font-bold tracking-widest text-[13px] whitespace-nowrap">
             太虚仙宗 · 问道天关
           </span>
@@ -2440,11 +2450,11 @@ export default function JadeXianxiaH5Game() {
             <span className="font-mono text-[11px] text-[#5FE3C8]">+充灵石</span>
           </button>
           <Link
-            href="/guide"
+            href={lang === "en" ? "/guide?lang=en" : "/guide"}
             className="text-[#C8AA72] hover:text-[#FFFFFF] transition-colors hidden md:flex items-center gap-1 whitespace-nowrap"
           >
             <BookOpen className="w-3.5 h-3.5" />
-            <span>{t("指南", "Guide")}</span>
+            <span>{t("产品", "Product")}</span>
           </Link>
           <button
             onClick={() => setLang((prev) => (prev === "zh" ? "en" : "zh"))}
@@ -3513,7 +3523,29 @@ export default function JadeXianxiaH5Game() {
                 <div className="text-xs font-serif font-medium text-[#594119] mt-2 tracking-wider">
                   {isForgingAnim
                     ? t("流云灵火凝练中 · 仙剑即将出匣...", "Tempering immortal blade in celestial fire...")
-                    : t("白玉八卦剑炉已温炉 · 请择一卷剑谱开炉", "Select a Sword Scroll Below to Forge")}
+                    : t("白玉八卦剑炉已温炉 · 纯凭天命机缘出炉品质词条", "Select a Sword Scroll Below to Forge")}
+                </div>
+
+                {/* 铸造机缘与品质概率说明条 (消除玩家炸炉碎剑顾虑，清晰展示消耗与概率) */}
+                <div className="mt-2.5 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2.5 text-[11px] font-serif">
+                  <span className="px-2 py-0.5 bg-[#ECFDF5] border border-[#10B981]/50 text-[#065F46] font-bold shadow-2xs">
+                    ✓ {t("成功率 100% · 必出法宝零炸炉", "100% Success Guaranteed")}
+                  </span>
+                  <span className="text-[#C8AA72]/60 hidden sm:inline">|</span>
+                  <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                    <span className="px-1.5 py-0.2 bg-[#F1F5F9] border border-[#CBD5E1] text-[#475569] font-bold">
+                      {t("凡品灵兵 45% (1.0×)", "Common 45%")}
+                    </span>
+                    <span className="px-1.5 py-0.2 bg-[#EFF6FF] border border-[#93C5FD] text-[#1E40AF] font-bold">
+                      {t("上品灵宝 35% (1.18×)", "Superior 35%")}
+                    </span>
+                    <span className="px-1.5 py-0.2 bg-[#FAF5FF] border border-[#D8B4FE] text-[#6B21A8] font-bold">
+                      {t("极品道器 15% (1.35×)", "Flawless 15%")}
+                    </span>
+                    <span className="px-1.5 py-0.2 bg-[#FEF3C7] border border-[#F59E0B] text-[#92400E] font-bold shadow-2xs">
+                      👑 {t("传世仙器 5% (1.65×)", "Mythic 5%")}
+                    </span>
+                  </div>
                 </div>
               </div>
 

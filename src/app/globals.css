@@ -73,6 +73,16 @@ body {
 }
 
 /* 墨玉/深青黛色抬头显示栏 (HUD) */
+.xianxia-dark-bar.h-9:not(:has(img.site-logo))::before {
+  content: "";
+  display: block;
+  width: 22px;
+  height: 22px;
+  margin-right: 8px;
+  flex: none;
+  background: url("/logo.png") center / contain no-repeat;
+}
+
 .xianxia-dark-bar {
   background: linear-gradient(
     180deg,

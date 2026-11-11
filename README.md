@@ -1,150 +1,117 @@
-# DaoAscension (仙途寻道·问鼎天榜) — On-Chain Xianxia Cultivation RPG on NEAR
+# 仙途寻道·问鼎天榜（DaoAscension）
 
-> **English & 中文双语文档 (Bilingual Documentation)** | Built for **NEAR HACKATHON 2026** (`2026-11-01` – `2026-11-14`)  
-> **Tracks**: `games` · `nfts` · `agents` · `defi`  
-> **Smart Contract**: Deployed on NEAR Testnet at [`dao-ascension-dev.testnet`](https://testnet.nearblocks.io/address/dao-ascension-dev.testnet) (Rust `near-sdk 5.30.1`)  
-> **UI Language Switcher**: One-click **`中文 / EN`** toggle in the top header of the web app.
+网页仙侠养成。打开即可玩，不必安装。
 
----
+- 在线：https://dao-ascension-eta.vercel.app
+- 产品页：https://dao-ascension-eta.vercel.app/guide
+- 赛道：`games` · `nfts` · `agents` · `defi`
+- 黑客松：NEAR HACKATHON 2026，开发截止 `2026-11-14T23:59:00Z`
 
-## Part I — English Documentation (For AI & Human Judges)
-
-### 1. Problem & Solution
-
-Traditional Web3 games suffer from four structural flaws:
-1. **Constant Wallet Popups**: Signing a transaction every time a player waters a crop, crafts a sword, or fights a monster ruins gameplay immersion.
-2. **Static NFTs**: Character NFTs are passive images stored separately from inventory, stats, and land plots.
-3. **Single-Metric Ponzi Leaderboards**: Whale-dominated combat boards alienate casual farmers and crafters, leading to rapid economic death spirals.
-4. **Sybil Exploit Vulnerability**: Fake multi-account bots farm weekly rewards with zero real economic commitment.
-
-**DaoAscension (仙途寻道·问鼎天榜)** solves these using native **NEAR Protocol** primitives:
-- **Soulbound Cultivator NFT (`NEP-171` + Bound Sub-Account)**: Each wallet binds exactly one non-transferable Cultivator NFT (`cultivator-nft:001`), permanently binding its realm stage, **Max HP**, **ATK**, equipped Flying Sword, storage bag, and 3×3 Spiritual Herb Garden.
-- **Zero-Popup Gameplay (`Function Call Access Keys`)**: All farming, alchemy pill refining, blacksmith forging, and dungeon combat actions are signed silently in the background via scoped `ed25519` Function Call Access Keys (`25.00 NEAR` allowance) and verified via `NEP-413`.
-- **Trifecta Progression + PVP Arena Loop**:
-  1. **Spiritual Herb Farming (洞府灵田 → +HP)**: Plant herbs (`Spirit-Gathering Grass`, `Nine-Leaf Blood Lingzhi`, `Millennium Vermilion Fruit`), irrigate with Spirit Spring water, and refine pills in the alchemy furnace to permanently increase **Max HP** and stock auto-healing combat pills.
-  2. **Immortal Artifact Forging (天工炼器 → +ATK)**: Smelt Secret Realm ores (`Black Iron`, `Meteor Ore`) into Flying Swords with dynamic rarity affixes to boost **ATK** and **Crit Rate**.
-  3. **Secret Realm Combat (秘境伏魔 → Loot Ores & Seeds)**: Challenge the 5-floor Demon Suppression Tower. Cultivators automatically consume farmed alchemy pills when HP drops below 55% and loot higher-tier ores and herb seeds on victory.
-  4. **PVP Arena Duel (问鼎论剑 → ELO Ranking)**: 12-round tactical combat against peer cultivators with distinct battle stats, climbing the Duel Leaderboard.
-- **Sect Treasury "50-30-20 Gold Distribution Rule" across 4 Weekly Heaven Leaderboards**:
-  - 100% of Spirit Stones spent on seeds, forging furnace fees, and realm entry talismans flow into the **Sect Treasury**.
-  - Every week, the Sect Treasury executes the **50-30-20 Rule**:
-    - **50% Weekly Reward Pool**: Distributed across **4 Parallel Weekly Leaderboards**:
-      - **30% — Demon Slayer Board (诛魔天榜)**: Ranked by Secret Realm floor progression.
-      - **30% — Duel Board (问鼎论剑榜)**: Ranked by PVP Arena ELO combat rating.
-      - **20% — Herb & Alchemy Board (百草药圣榜)**: Ranked by spiritual herbs harvested.
-      - **20% — Divine Blacksmith Board (神工天匠榜)**: Ranked by total Dao Body combat power (`HP + ATK * 4`).
-    - **30% Rolling Base Pool**: Stored in smart contract as next week's base pool and reserve liquidity.
-    - **20% Dev & Operations Vault**: Allocated for NEAR RPC nodes, session key gas sponsorship, and live ops.
-  - Weekly leaderboard rewards are settled cross-chain (e.g., to **Solana USDC**, **Arbitrum USDT**, **Base USDC**, or **NEAR**) via the **NEAR Intents 1Click API** with verified `NEP-413` intent signatures.
+同一份说明在游戏顶栏「产品」里。
 
 ---
 
-### 2. Live On-Chain Testnet Evidence
+## 1. 产品
 
-- **Contract Account**: [`dao-ascension-dev.testnet`](https://testnet.nearblocks.io/address/dao-ascension-dev.testnet)
-- **Account Creation**: [7nDRiVZC26DqoJ6eSE1eL6Sdo9V6esbwpbHWufksHXn7](https://testnet.nearblocks.io/txns/7nDRiVZC26DqoJ6eSE1eL6Sdo9V6esbwpbHWufksHXn7)
-- **Contract Deployment & Init**: [EhKCCpSSkcXBZ6V46KFK6oJve7a5Dzj4R3SDMKujGWp8](https://testnet.nearblocks.io/txns/EhKCCpSSkcXBZ6V46KFK6oJve7a5Dzj4R3SDMKujGWp8)
-- **Soulbound Character Minting**: [3yWiegaipvL8nVfiCG1aVihjPwuHHiEvWUjBzwS3u4z3](https://testnet.nearblocks.io/txns/3yWiegaipvL8nVfiCG1aVihjPwuHHiEvWUjBzwS3u4z3)
-- **Points Recharge (1 NEAR = 50 Stones)**: [44chpcsfsBGf9byByXFw26tKtbDKc26QZLfEJpMmhEQM](https://testnet.nearblocks.io/txns/44chpcsfsBGf9byByXFw26tKtbDKc26QZLfEJpMmhEQM)
-- **Pure-Random Artifact Forging**: [8eYSLKjC76UygedXd4bxWQodN4jPDKw8dUiTD253w2Tu](https://testnet.nearblocks.io/txns/8eYSLKjC76UygedXd4bxWQodN4jPDKw8dUiTD253w2Tu)
+要解决的问题：
 
----
+1. 浇水、锻造、战斗每次都弹钱包签名，玩法被打断。
+2. 角色 NFT 往往只是一张图，和气血、背包、灵田分开存放。
+3. 排行榜只看战力，种田和锻造的玩家没有名次。
 
-### 3. How to Try It (`Do X -> See Y` Steps)
+做法：
 
-#### Option A: One-Command CLI 10-Step Verification (For AI & Human Judges)
+- 一个道身 NFT（NEP-171）绑定一个子账户。境界、气血、攻击、飞剑、背包和九宫灵田跟这个账户走。
+- 播种、灌溉、炼丹、锻造、闯塔在会话里完成，不逐次弹钱包。签名范围限定在游戏动作（Function Call Key，NEP-413）。
+- 气血来自灵圃，攻击来自剑庐，材料来自秘境。三条线各自上榜，另有论剑积分榜。
+- 买种、锻造和秘境门票花掉的灵石进入宗门国库。结算时国库按 50% / 20% / 30% 拆分：50% 发给四榜，20% 留给运营，30% 留到下一周。四榜占这 50% 的份额是诛魔 30%、论剑 30%、百草 20%、神工 20%。奖励可经 NEAR Intents 换成其他链上的稳定币。兑换比例：1 NEAR = 50 灵石。
 
-```bash
-npm install
-npm run verify-demo
-```
+## 2. 现在能玩的循环
 
-- **Do X**: Run `npm run verify-demo`.
-- **See Y**: The CLI executes all 10 core verification assertions:
-  1. `[1. NEAR Testnet & Session Key]`: Bind NEP-171 Cultivator NFT to sub-account & FunctionCall Key
-  2. `[2. Spiritual Herb Growth Timers (+HP)]`: Harvesting mature herbs boosts Max HP; unready herbs enforce timers
-  3. `[3. Pure-Random Artifact Forging (+ATK)]`: Forging artifact pure-randomly rolls rarity/ATK and routes fee to Sect Treasury
-  4. `[4. Secret Realm Combat Loop]`: Defeat monsters on Floors 1 & 2, drop ores/seeds, update Slayer Board
-  5. `[5. PVP Arena Duel & 4th Heaven Board]`: PVP duel resolves 12-turn combat with ATK/DEF/crits, updating Duel Score and Duel Board
-  6. `[6. Treasury -> 4 Weekly Boards & Decrees]`: Extract 50% Treasury across 4 boards, issue Weekly Decree Mail, claim attachment & settle via NEAR Intents
-  7. `[7. NEAR Multi-Account Data Isolation]`: Logging in with distinct NEAR accounts isolates cultivator data, garden, and inventory
-  8. `[8. Innate Spirit Root & 0.1 NEAR Washing]`: Default spirit root is Ordinary (0% bonus); washing costs 0.1 NEAR (funds treasury) and rolls high tier with dynamic stat recalculation
-  9. `[9. Dao Body Reshaping & NFT Retention]`: Reshaping deducts 200 stones / 0.5 NEAR into treasury, changes avatar & title while preserving all HP, artifacts, and plots
-  10. `[10. Concurrent Herb Plots & Tokenomics (1N=50石)]`: Plots 0, 1, 2 can be seeded concurrently without mutually blocking, and 1 NEAR accurately converts to 50 Spirit Stones
+1. 创建道身，选择一种法相。
+2. 灵圃：播种、灵泉、采摘炼丹。气血上限上升，并得到战斗用的回血丹。
+3. 剑庐：用玄铁和陨铁锻造飞剑。攻击上升。
+4. 秘境：五层镇魔塔。血量低时自动服药。胜了掉落矿石和种子。
+5. 论剑：和道友交手，积分进入问鼎论剑榜。
+6. 天榜与国库：查看四榜名次和上述分账。奖励以传谕发到信箱，领取后入账。
 
-#### Option B: Smart Contract Unit Tests (7 Mathematical & Invariant Checks)
+顶栏可以在中文和英文之间切换。
 
-```bash
-cd contract
-cargo test
-```
+## 3. 怎么试
 
-- **See Y**: 7 unit tests pass in 0.08s, verifying invariants I1 through I8 (timelocks, rollover, monotonic score reporting, single settlement, soulbound transfers forbidden, and treasury splits).
+打开 https://dao-ascension-eta.vercel.app
 
-#### Option C: Sybil & Monte Carlo Economic Simulation
+| 做 | 看到 |
+| :--- | :--- |
+| 创建道身并确认 | 进入洞府，顶栏出现气血、攻击和灵石 |
+| 在空灵畦播种，再灵泉，再采摘炼丹 | 气血上限数字变大 |
+| 打开剑庐，锻造并佩戴飞剑 | 攻击数字变大 |
+| 进入秘境，挑战第 1 层 | 出现胜负战报；胜利时背包增加矿石或种子 |
+| 打开宗门国库 | 四榜并列，以及 50% / 20% / 30% 的分配 |
+| 顶栏切换 EN | 同一界面变为英文 |
 
-```bash
-python3 sim/simulate_economy.py
-```
+## 4. 路线图
 
-- **See Y**: Simulates 10, 100, and 1,000 players over 12 epochs with a 20% Sybil attack. Verifies that the Sybil net profit is strictly negative (-2.37 NEAR, -56.35 NEAR, -516.57 NEAR).
-
-#### Option D: Automated Settlement Keeper
-
-```bash
-npx tsx scripts/keeper-settle.ts
-```
-
-- **See Y**: Queries live epoch info and config from `dao-ascension-dev.testnet` on NEAR testnet via FastNEAR RPC.
-
-#### Option E: Interactive Bilingual Web UI (`Do X -> See Y`)
-
-```bash
-npm run dev
-```
-
-Open `http://localhost:3000` in your browser (click **`中文 / EN`** in the top bar to switch languages at any time):
-1. **洞府灵圃 (Herb Garden)**: Plant herbs in the 3×3 grid (strictly fixed 138px height), water with spring water, harvest pills for permanent Max HP increase.
-2. **天工剑庐 (Blacksmith Forge)**: Forge flying swords, enjoy pure-random rarity rolling, boost ATK.
-3. **云海试炼 (Demon Tower)**: Battle demonic beasts turn-by-turn with automatic pill consumption.
-4. **问鼎论剑 (PVP Arena)**: Duel opponents, earn ELO rating points.
-5. **宗门天榜 (Sect Treasury Leaderboards)**: Toggle between 2×2 All-Board view and single-board Olympic-style 3-tier podium view. View Top 1 Champion gold card, Top 2/3 silver/bronze badges, scrollable list for rank 4+, and pinned current player standing.
+| 阶段 | 时间 | 玩家得到什么 |
+| :--- | :--- | :--- |
+| Demo（当前） | 2026-11-01 ~ 2026-11-14 | 上面的单人循环已可在网页完整体验 |
+| Alpha | 2026-11-17 ~ 2026-12-26 | 进度按 NEAR 账户保存；种植、锻造、战斗结算上链；周榜改为真实玩家 |
+| Beta | 2027-01 ~ 2027-02 | 主网；周榜奖励经 NEAR Intents 实际跨链发放；道身可以转让；赛季 |
+| 正式版 | Beta 之后 | 在 Cocos 与 Unity 中选定一个游戏框架，把这条循环做成可安装的正式游戏 |
 
 ---
 
-## Part II — 中文版说明文档 (Chinese Documentation)
+## 5. What it is
 
-### 1. 核心机制与架构亮点
+DaoAscension is a browser xianxia cultivation game. Open the site and play. No install.
 
-**《仙途寻道·问鼎天榜》(DaoAscension)** 是基于 NEAR 链抽象与“NFT 即账户”构建的仙侠角色成长链游：
+- Live: https://dao-ascension-eta.vercel.app
+- Product page: https://dao-ascension-eta.vercel.app/guide
+- Tracks: `games`, `nfts`, `agents`, `defi`
+- Event: NEAR HACKATHON 2026. Development ends `2026-11-14T23:59:00Z`
 
-1. **道身即账户 (`NFT as Account` — `NEP-171` + 灵魂绑定)**：每个修仙者钱包绑定唯一且不可转让的灵魂绑定 NFT (`cultivator-nft:001`)，挂载独立子账户，永久存储境界、气血上限 (`Max HP`)、本命攻击 (`ATK`)、佩戴飞剑、储物袋与 3×3 九宫灵田。
-2. **零弹窗无感修仙 (`Function Call Access Keys`)**：播种、灵泉灌溉、炼丹、天工铸剑、秘境闯塔全程由受限 `Function Call Key` 静默签名并经 `NEP-413` 校验，零钱包弹窗打扰。
-3. **四大核心系统闭环**：
-   - **【洞府灵田】（农场种植 → 永久增加气血 Max HP）**：固定 138px 高度九宫格防抖设计，种植、浇灌、炼丹，提供战斗自动回血丹药。
-   - **【天工炼器】（装备打造 → 永久增加攻击力 ATK）**：消耗秘境铁矿真随机锻造高阶飞剑，费用全额注入国库。
-   - **【云海秘境】（PVE 闯塔 → 耗血吃药掉落矿石种子）**：五层镇魔塔，血量低于 55% 自动服用灵丹，击败妖兽掉落高阶灵材。
-   - **【问鼎论剑】（PVP 竞技场 → 12回合攻防决胜与 ELO 天梯）**：与其他门派道友切磋演武，争夺天榜排名。
-4. **宗门国库“五三二黄金分账法则”与四大周天榜**：
-   - 玩家充值 NEAR 兑换灵石（1 NEAR = 50 灵石）、购买种子、炼器手续费 100% 汇入**宗门国库**。
-   - 每周日 24:00 由天道自动执行 **50-30-20 黄金分润**：
-     - **50% 奖池**：全额分配给**四大周天榜**（诛魔 30% / 论剑 30% / 百草 20% / 神工 20%），前四名梯度分润（50% / 25% / 15% / 10%）。
-     - **30% 滚存底池**：留存在智能合约金库中，作为下一周期的奖池底池与流动性缓冲。
-     - **20% 官方开发运营金库**：支持 RPC 节点网络与全天候开发。
-   - 周榜奖励由合约直接以真实 NEAR 发放，并支持通过 **NEAR Intents 1Click API** 一键跨链结算承兑为 `Solana USDC`、`Arbitrum USDT` 或 `NEAR`。
+Problems:
 
----
+1. Watering, forging, and fighting each ask for a wallet signature, which breaks the loop.
+2. A character NFT is often only an image, stored apart from HP, inventory, and plots.
+3. Leaderboards rank combat power only, so farmers and crafters have no rank.
 
-### 2. 真实链上部署与测试验证
+What it does:
 
-- **Rust 智能合约**: `contract/` 基于 `near-sdk 5.30.1`，7 项单元测试覆盖 I1-I8 核心不变量。
-- **NEAR 测试网正式部署**: 合约账号 `dao-ascension-dev.testnet`。
-- **女巫攻击蒙特卡洛模拟**: `python3 sim/simulate_economy.py` 严格验证 20% 女巫攻击净收益为负，小号无法获利。
-- **10 项端到端全链路自动化测试**: `npm run verify-demo`（通过率 100%）。
+- One cultivator NFT (NEP-171) is bound to one sub-account. Realm, HP, ATK, sword, bag, and the 3×3 herb garden stay with that account.
+- Planting, watering, pill refining, forging, and tower runs happen inside the session without a wallet popup each time. The signature is limited to game actions (Function Call Key, NEP-413).
+- HP comes from the herb garden, ATK from the forge, and materials from the tower. Each line has its own board, plus a duel board.
+- Spirit stones spent on seeds, forging, and tower tickets go into the sect treasury. A settlement splits the treasury 50% / 20% / 30%: 50% to the four boards, 20% to operations, 30% kept for the next week. Of that 50%: Demon Slayer 30%, Duel 30%, Herb 20%, Forge 20%. Rewards can be quoted into stablecoins on other chains through NEAR Intents. Rate: 1 NEAR = 50 spirit stones.
 
----
+## 6. What you can play now
 
-## License & Hackathon Verification Notice
+1. Create a cultivator and pick a form.
+2. Herb garden: plant, water with the spirit spring, harvest and refine. Max HP rises, and you receive combat pills.
+3. Forge: smelt iron and meteor ore into a flying sword. ATK rises.
+4. Tower: five floors. The cultivator takes a pill when HP is low. A win drops ore and seeds.
+5. Duel: fight another cultivator. The score feeds the duel board.
+6. Boards and treasury: read the four ranks and the split above. Rewards arrive as mail; claiming them adds them to the account.
 
-Built for **NEAR HACKATHON 2026**.  
-Open-source under MIT License. All contract logic, economic simulations, and client assets are verified and reproducible via standard commands.
+The header switches between Chinese and English.
+
+## 7. How to try it
+
+Open https://dao-ascension-eta.vercel.app
+
+| Do | See |
+| :--- | :--- |
+| Create a cultivator and confirm | The cave opens. HP, ATK, and spirit stones appear in the header |
+| Plant an empty plot, water it, then harvest and refine | The Max HP number increases |
+| Open the forge, forge a sword, and equip it | The ATK number increases |
+| Enter the tower and challenge floor 1 | A win/loss report. A win adds ore or a seed to the bag |
+| Open the sect treasury | Four boards, and the 50% / 20% / 30% split |
+| Switch the header to EN | The same screen in English |
+
+## 8. Roadmap
+
+| Stage | When | What a player gets |
+| :--- | :--- | :--- |
+| Demo (now) | 2026-11-01 ~ 2026-11-14 | The single-player loop above, playable in the browser |
+| Alpha | 2026-11-17 ~ 2026-12-26 | Progress saved per NEAR account; plant, forge, and combat settlement on-chain; boards filled by real players |
+| Beta | 2027-01 ~ 2027-02 | Mainnet; weekly prizes paid out across chains through NEAR Intents; cultivator transfer; seasons |
+| Full game | After Beta | Choose either Cocos or Unity, then turn this loop into an installable game |

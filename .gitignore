@@ -9,3 +9,5 @@ out/
 tsconfig.tsbuildinfo
 contract/target/
 .data/
+.cursor/
+.vercel/

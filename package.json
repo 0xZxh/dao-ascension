@@ -2,6 +2,9 @@
   "name": "dao-ascension-near",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "description": "DaoAscension (仙途寻道·问鼎天榜): On-Chain Xianxia Cultivation RPG on NEAR Protocol — NFTs as Accounts (NEP-171 + Sub-Accounts), Zero-Popup Function Call Keys, Spiritual Herb Farming (+HP), Artifact Forging (+ATK), Secret Realm Combat, and Sect Treasury Weekly Leaderboards settled via NEAR Intents.",
   "scripts": {
     "dev": "next dev",
