@@ -6,12 +6,12 @@
 | :--- | :--- | :--- |
 | **D1** | **灵石积分不可转让** | 灵石记为合约内部映射表 `points: AccountId -> u64`；无 `transfer` 或提现入口，彻底杜绝积分被作为二级金融资产炒作的路径。 |
 | **D2** | **最低上榜门槛与防小号** | 各榜单设定独立最低门槛（试炼 1 层、百草 1 株、工匠 100 战力、论剑 1000 积分）；同分按 `reached_at ASC`（先达者在前）和全局自增 `seq ASC` 决出胜负。 |
-| **D3** | **Rust 合约实现** | 基于 Rust `near-sdk 5.30.1` 编写，单元测试 7 项全数覆盖不变量，编译产物 `dao_ascension.wasm` (417KB)。 |
+| **D3** | **Rust 合约实现** | 基于 Rust `near-sdk 5.30.1` 编写。`cargo test` 当前 12 项，覆盖存储费、写分权限、结算回执和运营池提取。修复前的 wasm 不能直接覆盖到已有状态上。 |
 | **D4** | **真实 NEAR 结算与合规防护** | 结算时由合约直接执行 `Promise::new(winner).transfer(amount_near)`；合规降险举措包括：公示链上概率表、透明 50/30/20 分流、积分不可提现、屏蔽指定地区开关。 |
 | **D5** | **道身 NFT 灵魂绑定** | 角色 NFT 强制 `is_soulbound = true`，调用 `nft_transfer` 直接 panic 拒绝，禁止账号交易转让冲榜。 |
-| **D6** | **专用测试网合约部署** | 部署于专属测试网账号 `dao-ascension-dev.testnet`，具备独立全权限密钥。 |
+| **D6** | **国库账户与管理员分离** | 持有玩家 NEAR 的合约账户不能同时担任 `owner_id` / `operator_id`。初始化后必须删除该账户的全权限密钥；终端里出现过的那把密钥不能再使用。测试网 `dao-ascension-dev.testnet` 已通过 migrate 换上当前合约，但 owner/operator 仍是该账户本身，且仍有全权限密钥，不能承载玩家资金。 |
 | **D7** | **版本控制与 CI 流程** | 初始化本地 Git，配置 `.github/workflows/ci.yml` 覆盖 Rust 单元测试、Python 蒙特卡洛模拟与 TypeScript E2E 验证。 |
-| **D8** | **链上可验证伪随机数** | 锻造与洗灵根采用 `env::random_seed()` + `env::block_timestamp()` 驱动，概率完全对齐公示表。 |
+| **D8** | **跨块承诺揭示** | 锻造与洗灵根先提交 `sha256(secret)`，并记下该块的 `random_seed`。下一区块再用 secret 揭示。结果写入合约状态。时间戳不参与抽取。出块者不能改已经记下的 seed，但仍可能拖延包含揭示交易。 |
 
 ---
 
@@ -21,7 +21,7 @@
 - **I2 (发放上限)**: 发放总额数学上恒严格 $\le$ 当期奖池 50%。
 - **I3 (国库三池守恒)**: 充值 100% 入金严格划拨：50% 奖池、30% 滚存底池、20% 运营金库。
 - **I4 (一钱包一道身)**: `test_character_mint_and_soulbound_invariant_i4` 验证重复铸造抛出 Soulbound 拒绝。
-- **I5 (单调递增分数)**: `test_operator_scores_reporting_and_monotonicity_i5` 验证仅 operator/owner 可上报，且分数不可向下回退。
+- **I5 (分数只能来自玩家自己的付费行为)**: `practice` 与 `commit_forge` 只给调用者 +1。`report_scores` 不接收账户或分数，只把已经记在链上的分数抄进当期榜。`settle` 仅 owner/operator 可调用，且必须等转账回执成功后才把对应金额标成已支付。
 - **I6 (时间锁限制)**: 当前时间未达 `start + duration` 时强制锁死结算。
 - **I7 (时间确定性排重)**: 同分判定先达到时间（`reached_at_ns`）更早者优先。
 - **I8 (积分非代币)**: 仅允许 `recharge_points` 充值与 `spend_points` 消费，零外部转账接口。

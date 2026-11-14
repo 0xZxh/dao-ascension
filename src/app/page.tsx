@@ -176,6 +176,11 @@ export default function JadeXianxiaH5Game() {
   const handleWalletDisconnect = async () => {
     try {
       await nearSignOut();
+      setTutorialStage(0);
+      setSnapshot(null);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("dao_near_account");
+      }
       triggerFloatingStat(
         t("✨ 已断开 NEAR 测试网钱包", "✨ Disconnected NEAR Wallet")
       );
@@ -451,8 +456,9 @@ export default function JadeXianxiaH5Game() {
       if (data.ok && data.snapshot) {
         setSnapshot(data.snapshot);
         setFetchError(null);
-        // 如果该账户已经铸造/结契了道身，且当前还停留在创角界面 (tutorialStage === 0)，则直接进入洞府！
-        if (data.snapshot.cultivator.isMinted) {
+        const walletId = signedAccountId?.trim() || "";
+        // 只有当前连接的钱包账户才能进入洞府。默认档和手填账号不能跳过登录。
+        if (walletId && acc === walletId && data.snapshot.cultivator.isMinted) {
           let targetStage: TutorialStage = 1;
           if (typeof window !== "undefined") {
             const saved = localStorage.getItem(`dao_tutorial_stage_${acc}`);
@@ -463,7 +469,7 @@ export default function JadeXianxiaH5Game() {
           }
           setTutorialStage(targetStage);
           setAvatarClass(data.snapshot.cultivator.avatarClass || "saintess");
-        } else {
+        } else if (!data.snapshot.cultivator.isMinted || acc !== walletId) {
           setTutorialStage(0);
         }
       } else {
@@ -477,7 +483,7 @@ export default function JadeXianxiaH5Game() {
         fetchSnapshot(acc);
       }, 1800);
     }
-  }, [activeAccountId, t]);
+  }, [activeAccountId, signedAccountId, t]);
 
   // 记录每个账号当前的洞府引导阶段
   useEffect(() => {
@@ -486,24 +492,13 @@ export default function JadeXianxiaH5Game() {
     }
   }, [tutorialStage, activeAccountId]);
 
-  // 客户端挂载：读取 localStorage 中保存的 NEAR 账户并加载
+  // 未连接钱包时不拉取默认道身，避免已结契的演示账号把访客送进洞府。
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedAcc = localStorage.getItem("dao_near_account");
-      if (savedAcc && savedAcc.trim()) {
-        const cleaned = savedAcc.trim();
-        setActiveAccountId(cleaned);
-        setAccountInput(cleaned);
-        fetchSnapshot(cleaned);
-        return;
-      }
-    }
-    fetchSnapshot();
     return () => {
       if (battleTimerRef.current) clearInterval(battleTimerRef.current);
       if (pvpTimerRef.current) clearInterval(pvpTimerRef.current);
     };
-  }, [fetchSnapshot]);
+  }, []);
 
   // 当 NEAR 测试网钱包连接成功，自动切换至该链上钱包账户并调取道身档案
   useEffect(() => {
@@ -850,7 +845,12 @@ export default function JadeXianxiaH5Game() {
   // 切换或登录 NEAR 账号拉回专属道身修仙档案
   const handleSwitchAccount = async (newAccount: string) => {
     const trimmed = newAccount.trim();
-    if (!trimmed) return;
+    const walletId = signedAccountId?.trim() || "";
+    if (!walletId || trimmed !== walletId) {
+      setIsAccountModalOpen(false);
+      await handleWalletConnect();
+      return;
+    }
     setActiveAccountId(trimmed);
     setAccountInput(trimmed);
     if (typeof window !== "undefined") {
@@ -1056,9 +1056,16 @@ export default function JadeXianxiaH5Game() {
   };
 
   const handleStartCultivationJourney = async () => {
-    await callGameApi(
+    if (!signedAccountId?.trim()) {
+      await handleWalletConnect();
+      return;
+    }
+    const walletId = signedAccountId.trim();
+    setActiveAccountId(walletId);
+    const res = await callGameApi(
       {
         action: "CREATE_CHARACTER",
+        accountId: walletId,
         daoName: daoNameInput.trim() || "云清浅",
         avatarClass,
         spiritRootName: createdSpiritRoot.name,
@@ -1069,6 +1076,9 @@ export default function JadeXianxiaH5Game() {
         textEn: "Awakening Dao Body...",
       }
     );
+    if (res?.ok === false || !res?.snapshot?.cultivator?.isMinted) {
+      return;
+    }
     setActiveBuilding("GARDEN");
     setTutorialStage(1);
     triggerFloatingStat(
@@ -1654,7 +1664,7 @@ export default function JadeXianxiaH5Game() {
     }, 700);
   };
 
-  if (!snapshot) {
+  if (signedAccountId && !snapshot) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center relative">
         <StarlightCloudCanvas />
@@ -1682,12 +1692,10 @@ export default function JadeXianxiaH5Game() {
     );
   }
 
-  const { cultivator, treasury, latestBattleReport, catalogs } = snapshot;
-
   // ==========================================================================
   // 画面一：白玉琉璃风 · 创角悬浮大屏 (tutorialStage === 0)
   // ==========================================================================
-  if (tutorialStage === 0) {
+  if (!signedAccountId || tutorialStage === 0 || !snapshot) {
     const activeRoot = SPIRIT_ROOTS[spiritRootIdx];
     const selectedCharCfg = resolveCharacterConfig(avatarClass);
     return (
@@ -1715,18 +1723,22 @@ export default function JadeXianxiaH5Game() {
             <button
               type="button"
               onClick={() => {
-                setAccountInput(activeAccountId);
+                if (!signedAccountId) {
+                  void handleWalletConnect();
+                  return;
+                }
+                setAccountInput(signedAccountId);
                 setIsAccountModalOpen(true);
               }}
               className="text-[#E0C99B] hover:text-[#FFFFFF] transition-colors flex items-center gap-1.5 px-2 py-0.5 border border-[#C8AA72]/50 bg-[#162724] shadow-xs"
-              title="绑定或切换自己的 NEAR 账号，拉回专属道身修仙档案"
+              title={signedAccountId ? "当前钱包账户" : "连接 NEAR 钱包后才能进入洞府"}
             >
               <User className="w-3.5 h-3.5 text-[#5FE3C8]" />
               <span className="font-mono text-[11px] text-[#5FE3C8] truncate max-w-[120px] sm:max-w-none">
-                {activeAccountId}
+                {signedAccountId || t("未连接钱包", "Wallet required")}
               </span>
               <span className="text-[10px] text-[#C8AA72] font-serif border-l border-[#C8AA72]/40 pl-1">
-                {t("切换道身", "Switch")}
+                {signedAccountId ? t("已结契", "Connected") : t("去连接", "Connect")}
               </span>
             </button>
             <span className="text-[#4F736C]">|</span>
@@ -2045,7 +2057,7 @@ export default function JadeXianxiaH5Game() {
               <div className="pt-1">
                 <button
                   type="button"
-                  disabled={loadingAction}
+                  disabled={loadingAction || isWalletInitializing}
                   onClick={handleStartCultivationJourney}
                   className="xianxia-btn-gold w-full py-3 font-serif font-bold text-sm tracking-[0.25em] flex items-center justify-center gap-2 shadow-md min-h-[46px]"
                 >
@@ -2055,10 +2067,15 @@ export default function JadeXianxiaH5Game() {
                     <>
                       <Sparkles className="w-4 h-4 text-[#7D5E2A]" />
                       <span>
-                        {t(
-                          "步入云海洞府 · 开启修仙之旅",
-                          "Enter Celestial Abode · Start Journey"
-                        )}
+                        {signedAccountId
+                          ? t(
+                              "步入云海洞府 · 开启修仙之旅",
+                              "Enter Celestial Abode · Start Journey"
+                            )
+                          : t(
+                              "连接钱包后才能进入洞府",
+                              "Connect Wallet to Enter"
+                            )}
                       </span>
                     </>
                   )}
@@ -2070,6 +2087,8 @@ export default function JadeXianxiaH5Game() {
       </div>
     );
   }
+
+  const { cultivator, treasury, latestBattleReport, catalogs } = snapshot;
 
   // ==========================================================================
   // 画面二：白玉琉璃浮空 HUD 主界面 (一步一步解锁洞府建筑)
@@ -5123,11 +5142,10 @@ export default function JadeXianxiaH5Game() {
 
             <CloudDivider className="my-2.5" />
 
-            {/* 2. 免钱包体验 / 指定账号档案切换 */}
             <p className="text-xs text-[#587570] mt-1 leading-relaxed">
               {t(
-                "每一个 NEAR 账号拥有物理隔离的独立道身档案（修为境界、九宫灵田、飞剑法宝、论剑胜绩与传谕信箱）。若未安装钱包插件，可直接输入指定账号体验：",
-                "Each NEAR account stores a strictly isolated cultivator profile. You can also directly enter any testnet account to inspect its state:"
+                "洞府只对当前连接的 NEAR 钱包开放。未连接钱包时不能进入主界面，也不能改用其他账号顶替。",
+                "The abode opens only for the connected NEAR wallet. Without a wallet you stay on this screen."
               )}
             </p>
 
@@ -5177,8 +5195,9 @@ export default function JadeXianxiaH5Game() {
               </button>
               <button
                 type="button"
+                disabled={!signedAccountId || accountInput.trim() !== signedAccountId}
                 onClick={() => handleSwitchAccount(accountInput)}
-                className="xianxia-btn-gold px-4 py-1.5 text-xs font-bold shadow-xs flex items-center gap-1.5"
+                className="xianxia-btn-gold px-4 py-1.5 text-xs font-bold shadow-xs flex items-center gap-1.5 disabled:opacity-40"
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>{t("调取道身档案", "Load Archive")}</span>

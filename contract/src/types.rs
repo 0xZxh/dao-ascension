@@ -121,3 +121,64 @@ pub struct ContractConfig {
     pub min_scores: Vec<(BoardType, u64)>,
     pub epoch_duration_ns: u64,
 }
+
+/// Commit-reveal material for forge and spirit-root rolls.
+/// The commit block's `random_seed` is stored here and reused at reveal.
+#[near(serializers = [json, borsh])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PendingCommit {
+    pub commitment: [u8; 32],
+    pub commit_seed: [u8; 32],
+    pub commit_block_height: u64,
+    pub prefix: String,
+}
+
+/// Payouts scheduled by `settle` and finalized only in the private callback.
+/// `pool` is the active-pool snapshot taken before the scheduled amount moved into escrow.
+#[near(serializers = [json, borsh])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PendingSettlement {
+    pub epoch_id: u64,
+    pub settled_at_ns: u64,
+    pub settled_by: AccountId,
+    pub winners: Vec<WinnerPayout>,
+    pub pool: NearToken,
+}
+
+/// NEAR this account actually put into the three pools, and prize NEAR already received.
+#[near(serializers = [json, borsh])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Contribution {
+    pub credited_in: NearToken,
+    pub paid_out: NearToken,
+}
+
+#[near(serializers = [json, borsh])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ScoreSyncStatus {
+    pub epoch_id: u64,
+    pub cursor: u64,
+    pub registered: u64,
+    pub complete: bool,
+}
+
+#[near(serializers = [json, borsh])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SettlementStart {
+    pub epoch_id: u64,
+    pub payout_count: u32,
+    pub finalized: bool,
+}
+
+#[near(serializers = [json, borsh])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct InputLimits {
+    pub max_dao_name_bytes: u32,
+    pub max_avatar_class_bytes: u32,
+    pub max_spirit_root_bytes: u32,
+    pub max_reason_bytes: u32,
+    pub max_seed_prefix_bytes: u32,
+    pub max_payment_method_bytes: u32,
+    pub max_registered_cultivators: u32,
+    pub max_score_sync_page: u32,
+}

@@ -55,7 +55,11 @@ async function main() {
     const remainingSec = Math.ceil((epochInfo.end_time_ns - nowNs) / 1_000_000_000);
     console.log(`⏳ Epoch #${epochInfo.epoch_id} is currently active. Settlement unlocks in ${remainingSec}s.`);
   } else {
-    console.log(`🚀 Triggering settlement for Epoch #${epochInfo.epoch_id}...`);
+    console.log(
+      `Epoch #${epochInfo.epoch_id} is due. This script does not sign or settle. ` +
+        `Only the operator key may call report_scores, then settle. ` +
+        `Run scripts/assert-no-full-access-key.ts on the treasury account first.`,
+    );
   }
 }
 
